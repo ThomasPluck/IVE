@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.ive/
+.claude/
+*.vsix
+webview/node_modules/
+.DS_Store
