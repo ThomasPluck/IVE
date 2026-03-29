@@ -73,8 +73,8 @@ CREATE INDEX IF NOT EXISTS idx_annotations_target ON annotations(target_type, ta
 
 CREATE TABLE IF NOT EXISTS test_coverage (
   symbol_id INTEGER NOT NULL REFERENCES symbols(id) ON DELETE CASCADE,
-  test_file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-  PRIMARY KEY (symbol_id, test_file_id)
+  hit_count INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (symbol_id)
 );
 
 CREATE TABLE IF NOT EXISTS perf_history (

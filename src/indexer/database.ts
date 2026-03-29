@@ -537,27 +537,21 @@ export class IVEDatabase {
 
   // ── Test coverage ────────────────────────────────────────────────────────
 
-  insertTestCoverage(symbolId: number, testFileId: number): void {
+  insertTestCoverage(symbolId: number, hitCount = 1): void {
     if (!this.db) return;
-    this.db.run('INSERT OR IGNORE INTO test_coverage (symbol_id, test_file_id) VALUES (?, ?)', [symbolId, testFileId]);
+    this.db.run('INSERT OR REPLACE INTO test_coverage (symbol_id, hit_count) VALUES (?, ?)', [symbolId, hitCount]);
   }
 
-  getTestCoverage(symbolId: number): Array<{ testFileId: number; testFilePath: string }> {
-    if (!this.db) return [];
-    const result = this.db.exec(
-      'SELECT tc.test_file_id, f.path FROM test_coverage tc JOIN files f ON tc.test_file_id = f.id WHERE tc.symbol_id = ?',
-      [symbolId]
-    );
-    return (result[0]?.values ?? []).map((row: unknown[]) => ({
-      testFileId: row[0] as number,
-      testFilePath: row[1] as string,
-    }));
+  isSymbolTested(symbolId: number): boolean {
+    if (!this.db) return false;
+    const r = this.db.exec('SELECT hit_count FROM test_coverage WHERE symbol_id = ?', [symbolId]);
+    return (r[0]?.values?.length ?? 0) > 0;
   }
 
   getTestCoverageStats(): { tested: number; total: number } {
     if (!this.db) return { tested: 0, total: 0 };
     const total = this.getAllFunctionIds().length;
-    const testedResult = this.db.exec('SELECT COUNT(DISTINCT symbol_id) FROM test_coverage');
+    const testedResult = this.db.exec('SELECT COUNT(*) FROM test_coverage');
     const tested = (testedResult[0]?.values[0]?.[0] as number) ?? 0;
     return { tested, total };
   }

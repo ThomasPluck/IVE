@@ -23,11 +23,6 @@ const DEFAULT_EXCLUDES = new Set([
   'htmlcov', '.terraform',
 ]);
 
-function isTestFile(filePath: string): boolean {
-  const name = path.basename(filePath);
-  return name.includes('.test.') || name.includes('.spec.') || filePath.includes('__tests__');
-}
-
 function findFiles(dir: string, extensions: Set<string>, results: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name.startsWith('.') && DEFAULT_EXCLUDES.has(entry.name)) continue;
@@ -155,19 +150,42 @@ async function main() {
     db.insertEdges(resolvedEdges);
     edgeCount = resolvedEdges.length;
 
-    // Test coverage: raw edges from test files → mark targets as tested
-    const testFileIds = new Set(
-      processed.filter(p => isTestFile(p.filePath)).map(p => p.fileId)
-    );
-    for (const raw of allRawEdges) {
-      if (!testFileIds.has(raw.sourceFileId)) continue;
-      const candidates = db.lookupSymbolsByName(raw.calleeName);
-      for (const c of candidates) {
-        if (!testFileIds.has(c.fileId)) {
-          db.insertTestCoverage(c.id, raw.sourceFileId);
+  });
+
+  // Test coverage: read Istanbul JSON if available
+  time('test-coverage', () => {
+    const coveragePath = path.join(workspacePath, 'coverage', 'coverage-final.json');
+    if (!fs.existsSync(coveragePath)) return;
+    try {
+      const coverage = JSON.parse(fs.readFileSync(coveragePath, 'utf-8'));
+      const allSymbols = db.getAllFilesAndSymbols();
+      const fileIdByPath = new Map<string, number>();
+      for (const f of allSymbols.files) fileIdByPath.set(f.path.replace(/\\/g, '/'), f.id);
+
+      for (const [filePath, fileData] of Object.entries(coverage) as Array<[string, any]>) {
+        const normalized = filePath.replace(/\\/g, '/');
+        const fileId = fileIdByPath.get(normalized);
+        if (!fileId) continue;
+
+        const symbols = allSymbols.symbols.filter(s => s.fileId === fileId && (s.kind === 'function' || s.kind === 'method'));
+        const fnMap = fileData.fnMap ?? {};
+        const hits = fileData.f ?? {};
+
+        for (const [key, fn] of Object.entries(fnMap) as Array<[string, any]>) {
+          if ((hits[key] ?? 0) === 0) continue;
+          const fnStart = fn.loc?.start?.line ?? 0;
+          const fnEnd = fn.loc?.end?.line ?? 0;
+          // Match Istanbul function to IVE symbol by line range overlap
+          for (const sym of symbols) {
+            if (sym.startLine <= fnEnd && sym.endLine >= fnStart) {
+              // Find the test file that covers this — use a synthetic test file ID (fileId 0 = "tests")
+              db.insertTestCoverage(sym.id, hits[key] as number);
+              break;
+            }
+          }
         }
       }
-    }
+    } catch { /* coverage file malformed or missing */ }
   });
 
   // Pass 3: cycles

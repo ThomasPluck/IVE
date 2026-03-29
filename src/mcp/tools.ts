@@ -86,11 +86,10 @@ function handleGetSymbol({ db, ws }: Ctx, args: Args): ToolResult {
     if (node.churnCount != null) out += `Churn: ${node.churnCount} commits (${node.recentChurnCount ?? 0} recent)\n`;
 
     // Test coverage
-    const tests = db.getTestCoverage(id);
-    if (tests.length > 0) {
-      out += `Tests: ${tests.map(t => rel(t.testFilePath, ws)).join(', ')}\n`;
+    if (db.isSymbolTested(id)) {
+      out += `Tests: COVERED\n`;
     } else {
-      out += `Tests: NONE — no test covers this function\n`;
+      out += `Tests: NOT COVERED — no test exercises this function\n`;
     }
 
     if (annotations.length > 0) {
