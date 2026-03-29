@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import { IndexManager } from '../indexer/IndexManager.js';
 import { getDiffSummary } from '../indexer/diffAnalyzer.js';
 import type { GraphData, DashboardData, NodeDetailData, WebviewToExtensionMessage, ExtensionToWebviewMessage } from '../types.js';
@@ -298,10 +299,5 @@ function annotateDiffStatus(graphData: GraphData, diff: DiffSummary): GraphData 
 }
 
 function getNonce(): string {
-  let text = '';
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) {
-    text += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return text;
+  return crypto.randomBytes(16).toString('hex');
 }

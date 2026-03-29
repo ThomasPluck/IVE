@@ -6,7 +6,8 @@ export interface LanguageConfig {
   callExpressionTypes: string[];
   decisionNodeTypes: string[];
   loopNodeTypes: string[];
-  parameterListField: string; // field name for parameter list on function nodes
+  parameterListField: string;
+  builtinMemberNames: string[];
 }
 
 const TS_COMMON: Omit<LanguageConfig, 'treeSitterName' | 'wasmFile'> = {
@@ -28,6 +29,22 @@ const TS_COMMON: Omit<LanguageConfig, 'treeSitterName' | 'wasmFile'> = {
   ],
   loopNodeTypes: ['for_statement', 'for_in_statement', 'for_of_statement', 'while_statement', 'do_statement'],
   parameterListField: 'parameters',
+  builtinMemberNames: [
+    'get', 'set', 'has', 'delete', 'clear', 'add', 'push', 'pop', 'shift', 'unshift',
+    'map', 'filter', 'find', 'some', 'every', 'reduce', 'forEach', 'includes',
+    'slice', 'splice', 'concat', 'join', 'sort', 'reverse', 'fill',
+    'keys', 'values', 'entries', 'toString', 'valueOf',
+    'then', 'catch', 'finally', 'resolve', 'reject',
+    'exec', 'test', 'match', 'replace', 'split', 'trim',
+    'log', 'warn', 'error', 'info', 'debug',
+    'on', 'off', 'emit', 'once', 'removeListener',
+    'read', 'write', 'close', 'open', 'end',
+    'start', 'stop', 'run', 'init',
+    'parse', 'stringify',
+    'findFiles', 'showTextDocument', 'showInformationMessage', 'showErrorMessage',
+    'registerCommand', 'registerWebviewViewProvider',
+    'dispose', 'require',
+  ],
 };
 
 const LANGUAGES: Record<string, LanguageConfig> = {
@@ -55,6 +72,13 @@ const LANGUAGES: Record<string, LanguageConfig> = {
     ],
     loopNodeTypes: ['for_statement', 'while_statement'],
     parameterListField: 'parameters',
+    builtinMemberNames: [
+      'get', 'set', 'has', 'keys', 'values', 'items', 'pop', 'append', 'extend',
+      'update', 'remove', 'clear', 'copy', 'sort', 'reverse',
+      'join', 'split', 'strip', 'replace', 'find', 'format',
+      'read', 'write', 'close', 'open', 'flush', 'seek',
+      'encode', 'decode', 'lower', 'upper', 'startswith', 'endswith',
+    ],
   },
   rust: {
     treeSitterName: 'rust',
@@ -75,6 +99,12 @@ const LANGUAGES: Record<string, LanguageConfig> = {
     ],
     loopNodeTypes: ['while_expression', 'for_expression', 'loop_expression'],
     parameterListField: 'parameters',
+    builtinMemberNames: [
+      'get', 'set', 'insert', 'remove', 'contains', 'push', 'pop', 'len',
+      'iter', 'map', 'filter', 'collect', 'unwrap', 'expect', 'clone',
+      'to_string', 'as_ref', 'into', 'from', 'new',
+      'read', 'write', 'flush', 'close', 'lock',
+    ],
   },
   go: {
     treeSitterName: 'go',
@@ -92,6 +122,11 @@ const LANGUAGES: Record<string, LanguageConfig> = {
     ],
     loopNodeTypes: ['for_statement'],
     parameterListField: 'parameters',
+    builtinMemberNames: [
+      'Get', 'Set', 'Delete', 'Len', 'Close', 'Read', 'Write',
+      'Lock', 'Unlock', 'Add', 'Done', 'Wait',
+      'Println', 'Printf', 'Sprintf', 'Errorf',
+    ],
   },
 };
 
@@ -115,6 +150,15 @@ export function getLanguageForFile(filePath: string): string | undefined {
 
 export function getLanguageConfig(language: string): LanguageConfig | undefined {
   return LANGUAGES[language];
+}
+
+/** Merged set of all builtin member names across all languages. */
+export function getAllBuiltinMemberNames(): Set<string> {
+  const all = new Set<string>();
+  for (const config of Object.values(LANGUAGES)) {
+    for (const name of config.builtinMemberNames) all.add(name);
+  }
+  return all;
 }
 
 export function getSupportedExtensions(): string[] {

@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { TreeSitterParser } from '../parser/TreeSitterParser.js';
 import { extractSymbols } from '../parser/symbolExtractor.js';
-import { getLanguageForFile, getSupportedExtensions } from '../parser/languages.js';
+import { getLanguageForFile, getSupportedExtensions, getAllBuiltinMemberNames } from '../parser/languages.js';
 import { extractRawCallEdges, resolveEdges } from '../parser/callGraphExtractor.js';
 import { computeMetrics } from '../parser/complexityCalculator.js';
 import { isGitRepo, getChurnForFile } from './gitChurnAnalyzer.js';
@@ -184,7 +184,7 @@ export class IndexManager {
       this.db.deleteEdgesForFile(result.fileId);
 
       const rawEdges = extractRawCallEdges(result.tree, result.language, symbols);
-      const edges = resolveEdges(rawEdges, this.db);
+      const edges = resolveEdges(rawEdges, this.db, getAllBuiltinMemberNames());
       this.db.insertEdges(edges);
 
       const metrics = computeMetrics(result.tree, result.language, symbols);
@@ -266,7 +266,7 @@ export class IndexManager {
     }
 
     // Resolve all edges now that all symbols are in the DB
-    const resolvedEdges = resolveEdges(allRawEdges, this.db);
+    const resolvedEdges = resolveEdges(allRawEdges, this.db, getAllBuiltinMemberNames());
     this.db.insertEdges(resolvedEdges);
 
     console.log(`IVE: Extracted ${resolvedEdges.length} call edges from ${allRawEdges.length} raw call sites.`);

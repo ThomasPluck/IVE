@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import Parser from 'web-tree-sitter';
 import { IVEDatabase } from '../indexer/database.js';
-import { getLanguageForFile, getLanguageConfig, getSupportedExtensions } from '../parser/languages.js';
+import { getLanguageForFile, getLanguageConfig, getSupportedExtensions, getAllBuiltinMemberNames } from '../parser/languages.js';
 import { extractSymbols } from '../parser/symbolExtractor.js';
 import { extractRawCallEdges, resolveEdges } from '../parser/callGraphExtractor.js';
 import { computeMetrics } from '../parser/complexityCalculator.js';
@@ -146,7 +146,7 @@ async function main() {
       allRawEdges.push(...rawEdges);
     }
 
-    const resolvedEdges = resolveEdges(allRawEdges, db);
+    const resolvedEdges = resolveEdges(allRawEdges, db, getAllBuiltinMemberNames());
     db.insertEdges(resolvedEdges);
     edgeCount = resolvedEdges.length;
 

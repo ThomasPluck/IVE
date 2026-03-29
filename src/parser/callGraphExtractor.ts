@@ -57,32 +57,12 @@ export function extractRawCallEdges(
   return edges;
 }
 
-// Member calls on built-in objects (Map, Set, Array, Promise, etc.) should never
-// resolve to user-defined symbols. These names are too common and create noise.
-const BUILTIN_MEMBER_NAMES = new Set([
-  'get', 'set', 'has', 'delete', 'clear', 'add', 'push', 'pop', 'shift', 'unshift',
-  'map', 'filter', 'find', 'some', 'every', 'reduce', 'forEach', 'includes',
-  'slice', 'splice', 'concat', 'join', 'sort', 'reverse', 'fill',
-  'keys', 'values', 'entries', 'toString', 'valueOf',
-  'then', 'catch', 'finally', 'resolve', 'reject',
-  'exec', 'test', 'match', 'replace', 'split', 'trim',
-  'log', 'warn', 'error', 'info', 'debug',
-  'on', 'off', 'emit', 'once', 'removeListener',
-  'read', 'write', 'close', 'open', 'end',
-  'start', 'stop', 'run', 'init',
-  'parse', 'stringify',
-  'findFiles', 'showTextDocument', 'showInformationMessage', 'showErrorMessage',
-  'registerCommand', 'registerWebviewViewProvider',
-  'dispose', 'require',
-]);
-
-export function resolveEdges(rawEdges: RawEdge[], db: IVEDatabase): ResolvedEdge[] {
+export function resolveEdges(rawEdges: RawEdge[], db: IVEDatabase, builtinNames?: Set<string>): ResolvedEdge[] {
   const resolved: ResolvedEdge[] = [];
   const seen = new Set<string>();
 
   for (const raw of rawEdges) {
-    // Skip member calls to built-in names — these are Map.get(), Array.push(), etc.
-    if (raw.isMemberCall && BUILTIN_MEMBER_NAMES.has(raw.calleeName)) continue;
+    if (raw.isMemberCall && builtinNames?.has(raw.calleeName)) continue;
 
     let candidates = db.lookupSymbolsByName(raw.calleeName);
     if (candidates.length === 0) continue;
