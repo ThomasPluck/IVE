@@ -23,7 +23,8 @@ export const GetAnnotationsSchema = z.object({
 
 export const AnnotateSchema = z.object({
   symbolId: z.number().optional().describe('Symbol ID to annotate (required for symbol annotations)'),
-  target_type: z.string().optional().describe('Target type: "symbol" (default), "module", or "project"'),
+  edgeId: z.number().optional().describe('Edge ID to annotate (for edge annotations — get edge IDs from ive_get_callers/callees)'),
+  target_type: z.string().optional().describe('Target type: "symbol" (default), "module", "project", or "edge"'),
   target_name: z.string().optional().describe('Target name for module/project annotations (e.g. "src/parser")'),
   tags: z.array(z.string()).describe('Semantic tags (e.g. ["auth", "deprecated"])'),
   label: z.string().describe('One-line docstring summary'),

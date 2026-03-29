@@ -49,6 +49,9 @@ export interface ProjectCoverage {
 export interface DashboardData {
   coverage: ProjectCoverage;
   annotationCount: number;
+  unannotatedNodes: number;
+  unannotatedEdges: number;
+  testCoverage: { tested: number; total: number };
   architectureStatus: { pass: boolean; violations: number; compliant: number };
   lastPerf: { totalMs: number; changedFiles: number; totalFiles: number; skipped: boolean } | null;
   risks: Array<{ id: number; name: string; coupling: number; impact: number; cc: number; file: string }>;

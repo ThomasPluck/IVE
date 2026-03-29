@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import type { IVEDatabase } from '../indexer/database.js';
 import type { GraphNode } from '../types.js';
 import { detectModuleBoundaries } from '../indexer/graphAnalyzer.js';
@@ -10,6 +11,31 @@ type Ctx = { db: IVEDatabase; ws: string };
 
 function text(s: string): ToolResult {
   return { content: [{ type: 'text', text: s }] };
+}
+
+/** Append enforcement warnings to any tool response. */
+function withEnforcement(ctx: Ctx, result: ToolResult): ToolResult {
+  const warnings: string[] = [];
+
+  const unannotatedNodes = ctx.db.getUnannotatedSymbolCount();
+  if (unannotatedNodes > 0) warnings.push(`${unannotatedNodes} unannotated functions`);
+
+  const unannotatedEdges = ctx.db.getUnannotatedEdgeCount();
+  if (unannotatedEdges > 0) warnings.push(`${unannotatedEdges} unannotated edges`);
+
+  // Diff discipline check
+  try {
+    const diffStat = execSync('git diff --shortstat', { cwd: ctx.ws, encoding: 'utf-8', timeout: 3000 }).trim();
+    if (diffStat) {
+      const linesMatch = diffStat.match(/(\d+) insertion|(\d+) deletion/g);
+      const totalLines = (linesMatch ?? []).reduce((sum, m) => sum + parseInt(m), 0);
+      if (totalLines > 500) warnings.push(`large uncommitted diff (${totalLines} lines) — document changes via ive_annotate`);
+    }
+  } catch { /* not a git repo or no changes */ }
+
+  if (warnings.length === 0) return result;
+  const banner = `\n\n--- Enforcement ---\n${warnings.map(w => `⚠ ${w}`).join('\n')}`;
+  return { content: [{ type: 'text', text: result.content[0].text + banner }] };
 }
 
 function err(message: string): ToolResult {
@@ -58,14 +84,26 @@ function handleGetSymbol({ db, ws }: Ctx, args: Args): ToolResult {
       if (m.isDeadCode) out += `⚠ DEAD CODE — unreachable from entry points\n`;
     }
     if (node.churnCount != null) out += `Churn: ${node.churnCount} commits (${node.recentChurnCount ?? 0} recent)\n`;
+
+    // Test coverage
+    const tests = db.getTestCoverage(id);
+    if (tests.length > 0) {
+      out += `Tests: ${tests.map(t => rel(t.testFilePath, ws)).join(', ')}\n`;
+    } else {
+      out += `Tests: NONE — no test covers this function\n`;
+    }
+
     if (annotations.length > 0) {
       out += `\nAnnotations:\n`;
       for (const a of annotations) {
         out += `  [${a.tags.join(', ')}] ${a.label}\n`;
         out += `    Rationale: ${a.explanation}\n`;
         if (a.algorithmicComplexity) out += `    Complexity: ${a.algorithmicComplexity}\n`;
+        if (a.spatialComplexity) out += `    Spatial: ${a.spatialComplexity}\n`;
         if (a.pitfalls.length > 0) out += `    Pitfalls: ${a.pitfalls.join('; ')}\n`;
       }
+    } else {
+      out += `\n⚠ No annotations — use ive_annotate to document this function\n`;
     }
     return text(out);
   }
@@ -75,11 +113,21 @@ function handleGetSymbol({ db, ws }: Ctx, args: Args): ToolResult {
   return text(`Symbols matching "${name}":\n\n${fmtList(matches.nodes, ws)}`);
 }
 
-function fmtCallList(nodes: Array<GraphNode & { callLine?: number; callText?: string }>, ws: string): string {
+function fmtCallList(db: IVEDatabase, nodes: Array<GraphNode & { callLine?: number; callText?: string }>, sourceOrTargetId: number, direction: 'caller' | 'callee', ws: string): string {
   return nodes.map(n => {
     let line = `  [${n.id}] ${fmt(n, ws)}`;
     if (n.callLine || n.callText) {
       line += `\n        call site: line ${n.callLine ?? '?'}: ${n.callText ?? '(unknown)'}`;
+    }
+    // Show edge annotation if it exists
+    const edgeSourceId = direction === 'caller' ? n.id : sourceOrTargetId;
+    const edgeTargetId = direction === 'caller' ? sourceOrTargetId : n.id;
+    const edgeId = db.getEdgeIdBetween(edgeSourceId, edgeTargetId);
+    if (edgeId) {
+      const edgeAnns = db.getAnnotations({ edgeId });
+      if (edgeAnns.length > 0) {
+        line += `\n        edge: [${edgeAnns[0].tags.join(', ')}] ${edgeAnns[0].label}`;
+      }
     }
     return line;
   }).join('\n');
@@ -92,7 +140,7 @@ function handleGetCallers({ db, ws }: Ctx, args: Args): ToolResult {
   const callers = db.getCallers(id);
   const header = target ? `Callers of ${target.name} (id=${id}):` : `Callers of id=${id}:`;
   if (callers.length === 0) return text(`${header}\n  (none — this is an entry point)`);
-  return text(`${header}\n\n${fmtCallList(callers, ws)}`);
+  return text(`${header}\n\n${fmtCallList(db, callers, id, 'caller', ws)}`);
 }
 
 function handleGetCallees({ db, ws }: Ctx, args: Args): ToolResult {
@@ -102,7 +150,7 @@ function handleGetCallees({ db, ws }: Ctx, args: Args): ToolResult {
   const callees = db.getCallees(id);
   const header = source ? `Callees of ${source.name} (id=${id}):` : `Callees of id=${id}:`;
   if (callees.length === 0) return text(`${header}\n  (none — this is a leaf function)`);
-  return text(`${header}\n\n${fmtCallList(callees, ws)}`);
+  return text(`${header}\n\n${fmtCallList(db, callees, id, 'callee', ws)}`);
 }
 
 function handleGetMetrics({ db, ws }: Ctx, args: Args): ToolResult {
@@ -133,11 +181,28 @@ function handleGetMetrics({ db, ws }: Ctx, args: Args): ToolResult {
 
 function handleGetCoverage({ db, ws }: Ctx): ToolResult {
   const cov = db.getProjectCoverage();
+  const testStats = db.getTestCoverageStats();
+  const unannotatedNodes = db.getUnannotatedSymbolCount();
+  const unannotatedEdges = db.getUnannotatedEdgeCount();
+
   let out = `=== Project Coverage ===\n`;
-  out += `Total functions: ${cov.totalFunctions}\n`;
-  out += `Reachable:       ${cov.reachableCount} (${cov.coveragePercent}%)\n`;
-  out += `Dead code:       ${cov.deadCodeIds.length}\n`;
-  out += `Entry points:    ${cov.entryPointIds.length}\n`;
+  out += `Total functions:  ${cov.totalFunctions}\n`;
+  out += `Reachable:        ${cov.reachableCount} (${cov.coveragePercent}%)\n`;
+  out += `Dead code:        ${cov.deadCodeIds.length}\n`;
+  out += `Entry points:     ${cov.entryPointIds.length}\n`;
+  out += `Test coverage:    ${testStats.tested}/${testStats.total} functions (${testStats.total > 0 ? Math.round((testStats.tested / testStats.total) * 100) : 0}%)\n`;
+  out += `Annotated nodes:  ${cov.totalFunctions - unannotatedNodes}/${cov.totalFunctions}`;
+  if (unannotatedNodes > 0) out += ` — ${unannotatedNodes} need annotations`;
+  out += `\nAnnotated edges:  ${(db.getAllEdges().length) - unannotatedEdges}/${db.getAllEdges().length}`;
+  if (unannotatedEdges > 0) out += ` — ${unannotatedEdges} need annotations`;
+  out += `\n`;
+
+  // Diff size warning
+  try {
+    const diffStat = execSync('git diff --shortstat', { cwd: ws, encoding: 'utf-8', timeout: 3000 }).trim();
+    if (diffStat) out += `\nUncommitted: ${diffStat}\n`;
+  } catch { /* not git */ }
+
   if (cov.deadCodeIds.length > 0) {
     out += `\nDead functions:\n`;
     for (const id of cov.deadCodeIds.slice(0, 20)) {
@@ -199,14 +264,17 @@ function handleGetSource({ db, ws }: Ctx, args: Args): ToolResult {
 
 function handleAnnotate({ db }: Ctx, args: Args): ToolResult {
   const symbolId = args.symbolId as number | undefined;
-  const targetType = (args.target_type as string) ?? 'symbol';
+  const edgeId = args.edgeId as number | undefined;
+  const targetType = (args.target_type as string) ?? (edgeId ? 'edge' : 'symbol');
   const targetName = (args.target_name as string) ?? '';
 
-  if (!symbolId && targetType === 'symbol') return err('symbolId is required for symbol annotations');
+  if (!symbolId && !edgeId && targetType === 'symbol') return err('symbolId is required for symbol annotations');
+  if (!edgeId && targetType === 'edge') return err('edgeId is required for edge annotations');
 
   const annotation = db.upsertAnnotation({
     symbolId: symbolId ?? null,
-    targetType: targetType as 'symbol' | 'module' | 'project',
+    edgeId: edgeId ?? null,
+    targetType: targetType as 'symbol' | 'module' | 'project' | 'edge',
     targetName,
     tags: (args.tags as string[]) ?? [],
     label: (args.label as string) ?? '',
@@ -415,7 +483,9 @@ export function handleToolCall(
   args: Record<string, unknown>
 ): ToolResult {
   db.reloadIfChanged();
+  const ctx = { db, ws: workspacePath };
   const handler = HANDLERS[name];
   if (!handler) return err(`unknown tool: ${name}`);
-  return handler({ db, ws: workspacePath }, args);
+  const result = handler(ctx, args);
+  return withEnforcement(ctx, result);
 }

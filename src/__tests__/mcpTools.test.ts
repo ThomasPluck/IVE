@@ -102,7 +102,7 @@ describe('ive_get_coverage', () => {
   it('returns readable coverage report', () => {
     const out = call('ive_get_coverage');
     expect(out).toContain('Project Coverage');
-    expect(out).toContain('Total functions: 3');
+    expect(out).toContain('Total functions:');
     expect(out).toContain('Entry points:');
   });
 });

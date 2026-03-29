@@ -468,17 +468,18 @@ export class IVEDatabase {
     }));
   }
 
-  getAnnotations(opts?: { symbolId?: number; targetType?: string; targetName?: string }): AnnotationRow[] {
+  getAnnotations(opts?: { symbolId?: number; edgeId?: number; targetType?: string; targetName?: string }): AnnotationRow[] {
     if (!this.db) return [];
-    let sql = 'SELECT id, symbol_id, target_type, target_name, tags, label, explanation, author, algorithmic_complexity, spatial_complexity, pitfalls, created_at, updated_at FROM annotations';
+    const cols = 'id, symbol_id, edge_id, target_type, target_name, tags, label, explanation, author, algorithmic_complexity, spatial_complexity, pitfalls, created_at, updated_at';
+    let sql = `SELECT ${cols} FROM annotations`;
     const params: unknown[] = [];
 
     if (opts?.symbolId !== undefined) {
-      sql += ' WHERE symbol_id = ?';
-      params.push(opts.symbolId);
+      sql += ' WHERE symbol_id = ?'; params.push(opts.symbolId);
+    } else if (opts?.edgeId !== undefined) {
+      sql += ' WHERE edge_id = ?'; params.push(opts.edgeId);
     } else if (opts?.targetType) {
-      sql += ' WHERE target_type = ?';
-      params.push(opts.targetType);
+      sql += ' WHERE target_type = ?'; params.push(opts.targetType);
       if (opts.targetName) { sql += ' AND target_name = ?'; params.push(opts.targetName); }
     }
 
@@ -487,8 +488,8 @@ export class IVEDatabase {
   }
 
   upsertAnnotation(data: {
-    symbolId?: number | null;
-    targetType?: 'symbol' | 'module' | 'project';
+    symbolId?: number | null; edgeId?: number | null;
+    targetType?: 'symbol' | 'module' | 'project' | 'edge';
     targetName?: string;
     tags: string[]; label: string; explanation: string; author?: string;
     algorithmicComplexity?: string; spatialComplexity?: string; pitfalls?: string[];
@@ -503,9 +504,11 @@ export class IVEDatabase {
     const targetType = data.targetType ?? 'symbol';
     const targetName = data.targetName ?? '';
 
-    // Find existing: by symbolId for symbols, by targetType+targetName for modules/project
     let existing: any[] = [];
-    if (data.symbolId) {
+    if (data.edgeId) {
+      const r = this.db.exec('SELECT id FROM annotations WHERE edge_id = ?', [data.edgeId]);
+      existing = r[0]?.values ?? [];
+    } else if (data.symbolId) {
       const r = this.db.exec('SELECT id FROM annotations WHERE symbol_id = ?', [data.symbolId]);
       existing = r[0]?.values ?? [];
     } else if (targetName) {
@@ -521,14 +524,66 @@ export class IVEDatabase {
       );
     } else {
       this.db.run(
-        'INSERT INTO annotations (symbol_id, target_type, target_name, tags, label, explanation, author, algorithmic_complexity, spatial_complexity, pitfalls, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [data.symbolId ?? null, targetType, targetName, tagsJson, data.label, data.explanation, author, algComplexity, spatComplexity, pitfallsJson, now, now]
+        'INSERT INTO annotations (symbol_id, edge_id, target_type, target_name, tags, label, explanation, author, algorithmic_complexity, spatial_complexity, pitfalls, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [data.symbolId ?? null, data.edgeId ?? null, targetType, targetName, tagsJson, data.label, data.explanation, author, algComplexity, spatComplexity, pitfallsJson, now, now]
       );
     }
 
     this.save();
+    if (data.edgeId) return this.getAnnotations({ edgeId: data.edgeId })[0];
     if (data.symbolId) return this.getAnnotations({ symbolId: data.symbolId })[0];
     return this.getAnnotations({ targetType, targetName })[0];
+  }
+
+  // ── Test coverage ────────────────────────────────────────────────────────
+
+  insertTestCoverage(symbolId: number, testFileId: number): void {
+    if (!this.db) return;
+    this.db.run('INSERT OR IGNORE INTO test_coverage (symbol_id, test_file_id) VALUES (?, ?)', [symbolId, testFileId]);
+  }
+
+  getTestCoverage(symbolId: number): Array<{ testFileId: number; testFilePath: string }> {
+    if (!this.db) return [];
+    const result = this.db.exec(
+      'SELECT tc.test_file_id, f.path FROM test_coverage tc JOIN files f ON tc.test_file_id = f.id WHERE tc.symbol_id = ?',
+      [symbolId]
+    );
+    return (result[0]?.values ?? []).map((row: unknown[]) => ({
+      testFileId: row[0] as number,
+      testFilePath: row[1] as string,
+    }));
+  }
+
+  getTestCoverageStats(): { tested: number; total: number } {
+    if (!this.db) return { tested: 0, total: 0 };
+    const total = this.getAllFunctionIds().length;
+    const testedResult = this.db.exec('SELECT COUNT(DISTINCT symbol_id) FROM test_coverage');
+    const tested = (testedResult[0]?.values[0]?.[0] as number) ?? 0;
+    return { tested, total };
+  }
+
+  // ── Enforcement queries ──────────────────────────────────────────────────
+
+  getUnannotatedSymbolCount(): number {
+    if (!this.db) return 0;
+    const r = this.db.exec(
+      `SELECT COUNT(*) FROM symbols s WHERE s.kind IN ('function','method') AND s.id NOT IN (SELECT symbol_id FROM annotations WHERE symbol_id IS NOT NULL)`
+    );
+    return (r[0]?.values[0]?.[0] as number) ?? 0;
+  }
+
+  getUnannotatedEdgeCount(): number {
+    if (!this.db) return 0;
+    const r = this.db.exec(
+      `SELECT COUNT(*) FROM edges WHERE id NOT IN (SELECT edge_id FROM annotations WHERE edge_id IS NOT NULL)`
+    );
+    return (r[0]?.values[0]?.[0] as number) ?? 0;
+  }
+
+  getEdgeIdBetween(sourceId: number, targetId: number): number | null {
+    if (!this.db) return null;
+    const r = this.db.exec('SELECT id FROM edges WHERE source_symbol_id = ? AND target_symbol_id = ?', [sourceId, targetId]);
+    return (r[0]?.values[0]?.[0] as number) ?? null;
   }
 
   savePerf(perf: { timestamp: number; totalFiles: number; changedFiles: number; totalMs: number; phases: Array<{ name: string; ms: number }>; skipped: boolean }): void {
@@ -592,24 +647,26 @@ function rowToAnnotation(row: unknown[]): AnnotationRow {
   return {
     id: row[0] as number,
     symbolId: (row[1] as number | null),
-    targetType: (row[2] as string) as AnnotationRow['targetType'],
-    targetName: (row[3] as string) || '',
-    tags: JSON.parse((row[4] as string) || '[]'),
-    label: row[5] as string,
-    explanation: row[6] as string,
-    author: row[7] as string,
-    algorithmicComplexity: (row[8] as string) || '',
-    spatialComplexity: (row[9] as string) || '',
-    pitfalls: JSON.parse((row[10] as string) || '[]'),
-    createdAt: row[11] as number,
-    updatedAt: row[12] as number,
+    edgeId: (row[2] as number | null),
+    targetType: (row[3] as string) as AnnotationRow['targetType'],
+    targetName: (row[4] as string) || '',
+    tags: JSON.parse((row[5] as string) || '[]'),
+    label: row[6] as string,
+    explanation: row[7] as string,
+    author: row[8] as string,
+    algorithmicComplexity: (row[9] as string) || '',
+    spatialComplexity: (row[10] as string) || '',
+    pitfalls: JSON.parse((row[11] as string) || '[]'),
+    createdAt: row[12] as number,
+    updatedAt: row[13] as number,
   };
 }
 
 export interface AnnotationRow {
   id: number;
   symbolId: number | null;
-  targetType: 'symbol' | 'module' | 'project';
+  edgeId: number | null;
+  targetType: 'symbol' | 'module' | 'project' | 'edge';
   targetName: string;
   tags: string[];
   label: string;

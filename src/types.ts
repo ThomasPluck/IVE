@@ -52,6 +52,9 @@ export type SymbolDiffStatus = 'added' | 'modified' | 'deleted' | 'unchanged';
 export interface DashboardData {
   coverage: import('./indexer/graphAnalyzer.js').ProjectCoverage;
   annotationCount: number;
+  unannotatedNodes: number;
+  unannotatedEdges: number;
+  testCoverage: { tested: number; total: number };
   architectureStatus: { pass: boolean; violations: number; compliant: number };
   lastPerf: { totalMs: number; changedFiles: number; totalFiles: number; skipped: boolean } | null;
   risks: Array<{ id: number; name: string; coupling: number; impact: number; cc: number; file: string }>;

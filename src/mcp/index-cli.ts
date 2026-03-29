@@ -23,6 +23,11 @@ const DEFAULT_EXCLUDES = new Set([
   'htmlcov', '.terraform',
 ]);
 
+function isTestFile(filePath: string): boolean {
+  const name = path.basename(filePath);
+  return name.includes('.test.') || name.includes('.spec.') || filePath.includes('__tests__');
+}
+
 function findFiles(dir: string, extensions: Set<string>, results: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name.startsWith('.') && DEFAULT_EXCLUDES.has(entry.name)) continue;
@@ -149,6 +154,20 @@ async function main() {
     const resolvedEdges = resolveEdges(allRawEdges, db);
     db.insertEdges(resolvedEdges);
     edgeCount = resolvedEdges.length;
+
+    // Test coverage: raw edges from test files → mark targets as tested
+    const testFileIds = new Set(
+      processed.filter(p => isTestFile(p.filePath)).map(p => p.fileId)
+    );
+    for (const raw of allRawEdges) {
+      if (!testFileIds.has(raw.sourceFileId)) continue;
+      const candidates = db.lookupSymbolsByName(raw.calleeName);
+      for (const c of candidates) {
+        if (!testFileIds.has(c.fileId)) {
+          db.insertTestCoverage(c.id, raw.sourceFileId);
+        }
+      }
+    }
   });
 
   // Pass 3: cycles

@@ -178,6 +178,9 @@ export class IVEPanelProvider implements vscode.WebviewViewProvider {
       data: {
         coverage,
         annotationCount,
+        unannotatedNodes: db.getUnannotatedSymbolCount(),
+        unannotatedEdges: db.getUnannotatedEdgeCount(),
+        testCoverage: db.getTestCoverageStats(),
         architectureStatus: { pass: archViolations === 0, violations: archViolations, compliant: archCompliant },
         lastPerf,
         risks: risks.slice(0, 15),

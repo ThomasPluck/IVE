@@ -9,7 +9,7 @@ interface Props {
 export function CoveragePanel({ dashboard, data, onShowDeadCode }: Props) {
   if (!dashboard || !data) return null;
 
-  const { coverage, annotationCount, architectureStatus, lastPerf, risks } = dashboard;
+  const { coverage, annotationCount, unannotatedNodes, unannotatedEdges, testCoverage, architectureStatus, lastPerf, risks } = dashboard;
   const deadCount = coverage.deadCodeIds.length;
   const cycleCount = data.edges.filter(e => e.isCycle).length;
   const modules = new Set(data.nodes.map(n => n.module).filter(Boolean));
@@ -38,8 +38,17 @@ export function CoveragePanel({ dashboard, data, onShowDeadCode }: Props) {
         </span>
       )}
 
+      {/* Test coverage */}
+      <span className={`ive-coverage-stat ${testCoverage.tested === 0 ? 'ive-coverage-warn' : 'ive-coverage-dim'}`}
+            title={`${testCoverage.tested} of ${testCoverage.total} functions have test coverage`}>
+        tests {testCoverage.total > 0 ? Math.round((testCoverage.tested / testCoverage.total) * 100) : 0}%
+      </span>
+
       {/* Annotations */}
-      <span className="ive-coverage-stat ive-coverage-dim">{annotationCount} annotated</span>
+      <span className={`ive-coverage-stat ${unannotatedNodes > 0 ? 'ive-coverage-warn' : 'ive-coverage-dim'}`}
+            title={unannotatedNodes > 0 ? `${unannotatedNodes} functions need annotations` : 'All functions annotated'}>
+        {annotationCount} annotated
+      </span>
       {risks.length > 0 && (
         <span className="ive-coverage-stat ive-coverage-warn" title="Unannotated high-risk functions">
           {risks.length} risks

@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS metrics (
 CREATE TABLE IF NOT EXISTS annotations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   symbol_id INTEGER REFERENCES symbols(id) ON DELETE CASCADE,
+  edge_id INTEGER REFERENCES edges(id) ON DELETE CASCADE,
   target_type TEXT NOT NULL DEFAULT 'symbol',
   target_name TEXT NOT NULL DEFAULT '',
   tags TEXT NOT NULL DEFAULT '[]',
@@ -67,7 +68,14 @@ CREATE TABLE IF NOT EXISTS annotations (
   updated_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_annotations_symbol ON annotations(symbol_id);
+CREATE INDEX IF NOT EXISTS idx_annotations_edge ON annotations(edge_id);
 CREATE INDEX IF NOT EXISTS idx_annotations_target ON annotations(target_type, target_name);
+
+CREATE TABLE IF NOT EXISTS test_coverage (
+  symbol_id INTEGER NOT NULL REFERENCES symbols(id) ON DELETE CASCADE,
+  test_file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+  PRIMARY KEY (symbol_id, test_file_id)
+);
 
 CREATE TABLE IF NOT EXISTS perf_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
