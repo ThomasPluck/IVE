@@ -57,6 +57,12 @@ THRESHOLDS — When to worry:
   CC > 10: Too many branches. Extract sub-functions or simplify the logic.
   depthFromEntry > 5: Deep in the call stack. Hard to reason about in isolation.
 
+ENFORCEMENT WARNINGS — Every response includes a banner showing:
+  - Unannotated functions: Functions without annotations. Fix by running ive_annotate on each.
+  - Unannotated edges: Call relationships without semantic annotations explaining WHY A calls B. Fix with ive_annotate using edgeId.
+  - Large uncommitted diff: When git diff exceeds ~500 lines, document your changes before they grow further.
+  These warnings disappear as you annotate. A clean codebase has zero warnings. Treat warnings as your TODO list — work through them as you go.
+
 THE META RULE: If you're about to create something, search first. If you're about to change something, inspect first. If you learned something, annotate it. The codebase is a shared artifact — treat it with the care of someone who will maintain it for years, not the expedience of someone who will never see it again.`,
   });
 
