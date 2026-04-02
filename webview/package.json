@@ -8,14 +8,15 @@
     "build": "vite build"
   },
   "dependencies": {
+    "d3-force": "^3.0.0",
     "d3-hierarchy": "^3.1.2",
     "d3-interpolate": "^3.0.1",
     "d3-scale": "^4.0.2",
-    "elkjs": "^0.11.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@types/d3-force": "^3.0.9",
     "@types/d3-hierarchy": "^3.1.7",
     "@types/d3-interpolate": "^3.0.4",
     "@types/d3-scale": "^4.0.8",

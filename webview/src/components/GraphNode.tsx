@@ -1,7 +1,7 @@
-import type { LayoutNode } from '../hooks/useGraphLayout';
+import type { ForceNode } from '../hooks/useGraphLayout';
 
 interface Props {
-  node: LayoutNode;
+  node: ForceNode;
   isRoot: boolean;
   hasCallees: boolean;
   isInCycle: boolean;
@@ -9,9 +9,10 @@ interface Props {
   isDeadCode: boolean;
   isHighCoupling: boolean;
   isHighImpact: boolean;
-  onClick: (node: LayoutNode) => void;
-  onDrillDown: (node: LayoutNode) => void;
+  onClick: (node: ForceNode) => void;
+  onDrillDown: (node: ForceNode) => void;
   onNavigate: (filePath: string, line: number) => void;
+  onMouseDown: (e: React.MouseEvent, node: ForceNode) => void;
 }
 
 function diffStripeColor(status: string | undefined): string | null {
@@ -41,7 +42,7 @@ function kindIcon(kind: string): string {
   }
 }
 
-export function GraphNodeComponent({ node, isRoot, hasCallees, isInCycle, isHighChurn, isDeadCode, isHighCoupling, isHighImpact, onClick, onDrillDown, onNavigate }: Props) {
+export function GraphNodeComponent({ node, isRoot, hasCallees, isInCycle, isHighChurn, isDeadCode, isHighCoupling, isHighImpact, onClick, onDrillDown, onNavigate, onMouseDown }: Props) {
   const color = complexityColor(node.complexity);
   const diffStripe = diffStripeColor(node.diffStatus);
   const borderColor = isDeadCode
@@ -76,7 +77,8 @@ export function GraphNodeComponent({ node, isRoot, hasCallees, isInCycle, isHigh
       transform={`translate(${node.x}, ${node.y})`}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
-      style={{ cursor }}
+      onMouseDown={(e) => { e.stopPropagation(); onMouseDown(e, node); }}
+      style={{ cursor: 'grab' }}
     >
       <rect
         width={node.width}

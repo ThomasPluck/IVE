@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
-import { useGraphLayout, type LayoutNode } from '../hooks/useGraphLayout';
+import { useForceLayout, type ForceNode } from '../hooks/useGraphLayout';
 import { GraphNodeComponent } from './GraphNode';
 import { GraphEdgeComponent, EdgeMarkerDefs } from './GraphEdge';
 import { CoveragePanel } from './CoveragePanel';
@@ -20,12 +20,25 @@ interface Props {
 
 interface Viewport { x: number; y: number; scale: number }
 
+const DRAG_THRESHOLD = 5;
+
 export function CodeGraph({ data, dashboard, onNavigate, onDrillDown, onDrillUp, onToggleDiff, drillStack, diffMode, onShowDeadCode, onSelectNode }: Props) {
-  const layout = useGraphLayout(data);
+  const forceLayout = useForceLayout(data);
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<Viewport>({ x: 20, y: 20, scale: 1 });
-  const dragStart = useRef<{ mx: number; my: number; vx: number; vy: number } | null>(null);
+
+  // Keep refs in sync so mouse handlers can read current values without re-creating
+  const viewportRef = useRef(viewport);
+  viewportRef.current = viewport;
+  const forceLayoutRef = useRef(forceLayout);
+  forceLayoutRef.current = forceLayout;
+
+  // Canvas pan state
+  const panStart = useRef<{ mx: number; my: number; vx: number; vy: number } | null>(null);
+
+  // Node drag state
+  const dragRef = useRef<{ id: number; startX: number; startY: number; moved: boolean } | null>(null);
 
   const callersSet = useMemo(() => data ? new Set(data.edges.map(e => e.sourceId)) : new Set<number>(), [data]);
   const cycleNodesSet = useMemo(() => {
@@ -54,31 +67,79 @@ export function CodeGraph({ data, dashboard, onNavigate, onDrillDown, onDrillUp,
     return v.length > 0 ? v[Math.floor(v.length * 0.8)] : Infinity;
   }, [data]);
 
+  // Center viewport on data change
   useEffect(() => { setViewport({ x: 20, y: 20, scale: 1 }); }, [data]);
 
+  // --- All mouse handlers use refs — zero dependency churn ---
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
-    setViewport(v => ({ ...v, scale: Math.max(0.15, Math.min(4, v.scale * (e.deltaY > 0 ? 0.9 : 1.1))) }));
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    setViewport(v => {
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      const newScale = Math.max(0.15, Math.min(4, v.scale * factor));
+      const ratio = newScale / v.scale;
+      // Keep the world-point under the cursor fixed
+      return { x: mx - (mx - v.x) * ratio, y: my - (my - v.y) * ratio, scale: newScale };
+    });
   }, []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
-    dragStart.current = { mx: e.clientX, my: e.clientY, vx: viewport.x, vy: viewport.y };
-  }, [viewport]);
+    const v = viewportRef.current;
+    panStart.current = { mx: e.clientX, my: e.clientY, vx: v.x, vy: v.y };
+  }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!dragStart.current) return;
-    setViewport(v => ({ ...v, x: dragStart.current!.vx + e.clientX - dragStart.current!.mx, y: dragStart.current!.vy + e.clientY - dragStart.current!.my }));
+    // Node drag takes priority
+    if (dragRef.current) {
+      const dx = e.clientX - dragRef.current.startX;
+      const dy = e.clientY - dragRef.current.startY;
+      if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+        dragRef.current.moved = true;
+      }
+      const v = viewportRef.current;
+      const worldX = (e.clientX - v.x) / v.scale;
+      const worldY = (e.clientY - v.y) / v.scale;
+      forceLayoutRef.current?.onNodeDrag(dragRef.current.id, worldX, worldY);
+      return;
+    }
+    // Canvas pan
+    if (panStart.current) {
+      setViewport({
+        x: panStart.current.vx + e.clientX - panStart.current.mx,
+        y: panStart.current.vy + e.clientY - panStart.current.my,
+        scale: viewportRef.current.scale,
+      });
+    }
   }, []);
 
-  const handleMouseUp = useCallback(() => { dragStart.current = null; }, []);
+  const handleMouseUp = useCallback(() => {
+    if (dragRef.current) {
+      forceLayoutRef.current?.onNodeDragEnd(dragRef.current.id);
+      dragRef.current = null;
+    }
+    panStart.current = null;
+  }, []);
 
-  const handleNodeClick = useCallback((node: LayoutNode) => {
+  // --- Node interaction handlers ---
+  const handleNodeMouseDown = useCallback((e: React.MouseEvent, node: ForceNode) => {
+    dragRef.current = { id: node.id, startX: e.clientX, startY: e.clientY, moved: false };
+  }, []);
+
+  const handleNodeClick = useCallback((node: ForceNode) => {
+    // Suppress click if it was a drag
+    if (dragRef.current?.moved) return;
     const gn = data?.nodes.find(n => n.id === node.id);
     if (gn) onSelectNode(gn);
   }, [data, onSelectNode]);
 
-  const handleNodeDrillDown = useCallback((node: LayoutNode) => { onDrillDown(node.id); }, [onDrillDown]);
+  const handleNodeDrillDown = useCallback((node: ForceNode) => {
+    if (dragRef.current?.moved) return;
+    onDrillDown(node.id);
+  }, [onDrillDown]);
 
   if (!data || data.nodes.length === 0) {
     return (
@@ -89,7 +150,7 @@ export function CodeGraph({ data, dashboard, onNavigate, onDrillDown, onDrillUp,
     );
   }
 
-  if (!layout) return <div className="ive-empty"><p>Computing layout…</p></div>;
+  if (!forceLayout) return <div className="ive-empty"><p>Computing layout...</p></div>;
 
   return (
     <div className="ive-graph-container" ref={containerRef}>
@@ -122,18 +183,24 @@ export function CodeGraph({ data, dashboard, onNavigate, onDrillDown, onDrillUp,
         ref={svgRef}
         className="ive-graph-svg"
         onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
+        onMouseDown={handleCanvasMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        style={{ cursor: dragStart.current ? 'grabbing' : 'grab' }}
+        style={{ cursor: dragRef.current ? 'grabbing' : 'grab' }}
       >
         <EdgeMarkerDefs />
         <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.scale})`}>
-          {layout.edges.map((edge, i) => (
-            <GraphEdgeComponent key={i} edge={edge} markerId={`ive-arrow-${edge.kind}`} />
+          {forceLayout.edges.map((edge, i) => (
+            <GraphEdgeComponent
+              key={i}
+              edge={edge}
+              sourceNode={edge.source}
+              targetNode={edge.target}
+              markerId={`ive-arrow-${edge.kind}`}
+            />
           ))}
-          {layout.nodes.map(node => (
+          {forceLayout.nodes.map(node => (
             <GraphNodeComponent
               key={node.id}
               node={node}
@@ -147,10 +214,11 @@ export function CodeGraph({ data, dashboard, onNavigate, onDrillDown, onDrillUp,
               onClick={handleNodeClick}
               onDrillDown={handleNodeDrillDown}
               onNavigate={onNavigate}
+              onMouseDown={handleNodeMouseDown}
             />
           ))}
         </g>
-        <text x={8} y={layout.height * viewport.scale + viewport.y - 4} fontSize={10} fill="rgba(255,255,255,0.2)" style={{ userSelect: 'none', pointerEvents: 'none' }}>
+        <text x={8} y="98%" fontSize={10} fill="rgba(255,255,255,0.2)" style={{ userSelect: 'none', pointerEvents: 'none' }}>
           {data.nodes.length} nodes · {data.edges.length} edges
         </text>
       </svg>
