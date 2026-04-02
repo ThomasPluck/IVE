@@ -5,6 +5,10 @@
   "version": "0.0.1",
   "publisher": "ive",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ThomasPluck/IVE"
+  },
   "icon": "resources/ive_logo.png",
   "engines": {
     "vscode": "^1.100.0"

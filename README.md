@@ -2,7 +2,7 @@
   <img src="resources/ive_logo.png" alt="IVE" width="128" />
 </p>
 
-<h1 align="center">IVE - Independent Vibing Environment</h1>
+<h1 align="center">IVE - Interactive Vibing Environment</h1>
 
 <p align="center">
   <a href="https://github.com/ThomasPluck/IVE/actions/workflows/build.yml"><img src="https://github.com/ThomasPluck/IVE/actions/workflows/build.yml/badge.svg" alt="Build VSIX" /></a>
