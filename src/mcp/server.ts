@@ -13,6 +13,11 @@ import {
   AnnotateSchema,
   FindRisksSchema,
   SetArchitectureSchema,
+  FindPathSchema,
+  HighlightSchema,
+  SelectPathSchema,
+  NeighborhoodSchema,
+  HighlightClusterSchema,
   EmptySchema,
 } from './schemas.js';
 
@@ -143,6 +148,40 @@ THE META RULE: If you're about to create something, search first. If you're abou
     description: 'Performance profile from recent index runs with trend detection. Shows per-phase timing (scan, parse, edges, cycles). Use to detect if indexing is getting slower as the codebase grows.',
     inputSchema: EmptySchema,
   }, () => handleToolCall(db, workspacePath, 'ive_get_perf', {}));
+
+  server.registerTool('ive_find_path', {
+    description: 'Find the shortest call path between two functions. Returns the chain of function calls from source to target. Useful for understanding how two distant parts of the codebase are connected.',
+    inputSchema: FindPathSchema,
+  }, (args) => handleToolCall(db, workspacePath, 'ive_find_path', args));
+
+  // ── Viewer control tools — highlight and select in the webview ────────────
+
+  server.registerTool('ive_highlight', {
+    description: 'Highlight specific nodes in the IVE viewer. Accepts node_ids (numbers) or node_names (strings resolved via search). Pass an empty node_ids array to clear. Requires the IVE panel to be open in VSCode.',
+    inputSchema: HighlightSchema,
+  }, (args) => handleToolCall(db, workspacePath, 'ive_highlight', args));
+
+  server.registerTool('ive_select_path', {
+    description: 'Find the shortest call path between two functions AND highlight it in the IVE viewer. Accepts from_id/to_id (numbers) or from_name/to_name (strings resolved via search). Requires the IVE panel to be open in VSCode.',
+    inputSchema: SelectPathSchema,
+  }, (args) => handleToolCall(db, workspacePath, 'ive_select_path', args));
+
+  // ── Exploration tools — discover and visualize graph structure ─────────────
+
+  server.registerTool('ive_get_neighborhood', {
+    description: 'Get the local subgraph around a function within N hops (both callers and callees). Returns all nodes in the neighborhood and highlights them in the viewer. Accepts id or name (supports name@file syntax). Default depth: 2.',
+    inputSchema: NeighborhoodSchema,
+  }, (args) => handleToolCall(db, workspacePath, 'ive_get_neighborhood', args));
+
+  server.registerTool('ive_suggest_highlights', {
+    description: 'Returns 3-5 interesting subgraphs to explore, pre-computed from graph metrics. Includes: highest coupling hub, deepest call chain, top unannotated risk, widest fan-out, dead code cluster. Each suggestion includes node IDs ready to pass to ive_highlight. Best tool for cold-start exploration.',
+    inputSchema: EmptySchema,
+  }, () => handleToolCall(db, workspacePath, 'ive_suggest_highlights', {}));
+
+  server.registerTool('ive_highlight_cluster', {
+    description: 'Find and highlight a cluster around a function using a strategy. Strategies: "neighborhood" (default, 2-hop subgraph), "high_coupling" (only high-coupling nodes within 2 hops), "deep_chain" (longest forward call chain from this function). Accepts id or name.',
+    inputSchema: HighlightClusterSchema,
+  }, (args) => handleToolCall(db, workspacePath, 'ive_highlight_cluster', args));
 
   // ── Annotation tools — agent memory across sessions ───────────────────────
 

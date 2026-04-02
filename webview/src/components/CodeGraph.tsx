@@ -16,13 +16,15 @@ interface Props {
   diffMode: boolean;
   onShowDeadCode: () => void;
   onSelectNode: (node: GraphNode) => void;
+  highlightedNodeIds: Set<number>;
+  onClearHighlight: () => void;
 }
 
 interface Viewport { x: number; y: number; scale: number }
 
 const DRAG_THRESHOLD = 5;
 
-export function CodeGraph({ data, dashboard, onNavigate, onDrillDown, onDrillUp, onToggleDiff, drillStack, diffMode, onShowDeadCode, onSelectNode }: Props) {
+export function CodeGraph({ data, dashboard, onNavigate, onDrillDown, onDrillUp, onToggleDiff, drillStack, diffMode, onShowDeadCode, onSelectNode, highlightedNodeIds, onClearHighlight }: Props) {
   const forceLayout = useForceLayout(data);
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -152,6 +154,8 @@ export function CodeGraph({ data, dashboard, onNavigate, onDrillDown, onDrillUp,
 
   if (!forceLayout) return <div className="ive-empty"><p>Computing layout...</p></div>;
 
+  const hasHighlight = highlightedNodeIds.size > 0;
+
   return (
     <div className="ive-graph-container" ref={containerRef}>
       <div className="ive-breadcrumb">
@@ -167,6 +171,15 @@ export function CodeGraph({ data, dashboard, onNavigate, onDrillDown, onDrillUp,
               </span>
             ))}
           </>
+        )}
+        {hasHighlight && (
+          <button
+            className="ive-diff-btn ive-diff-btn--active"
+            onClick={onClearHighlight}
+            title="Clear highlight"
+          >
+            ✕ Highlight
+          </button>
         )}
         <button
           className={`ive-diff-btn${diffMode ? ' ive-diff-btn--active' : ''}`}
@@ -191,32 +204,40 @@ export function CodeGraph({ data, dashboard, onNavigate, onDrillDown, onDrillUp,
       >
         <EdgeMarkerDefs />
         <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.scale})`}>
-          {forceLayout.edges.map((edge, i) => (
-            <GraphEdgeComponent
-              key={i}
-              edge={edge}
-              sourceNode={edge.source}
-              targetNode={edge.target}
-              markerId={`ive-arrow-${edge.kind}`}
-            />
-          ))}
-          {forceLayout.nodes.map(node => (
-            <GraphNodeComponent
-              key={node.id}
-              node={node}
-              isRoot={rootIdsSet.has(node.id)}
-              hasCallees={callersSet.has(node.id)}
-              isInCycle={cycleNodesSet.has(node.id)}
-              isHighChurn={(node.recentChurnCount ?? 0) >= churnThreshold && churnThreshold < Infinity}
-              isDeadCode={deadCodeSet.has(node.id)}
-              isHighCoupling={highCouplingSet.has(node.id)}
-              isHighImpact={highImpactSet.has(node.id)}
-              onClick={handleNodeClick}
-              onDrillDown={handleNodeDrillDown}
-              onNavigate={onNavigate}
-              onMouseDown={handleNodeMouseDown}
-            />
-          ))}
+          {forceLayout.edges.map((edge, i) => {
+            const edgeDimmed = hasHighlight && !(highlightedNodeIds.has(edge.sourceId) && highlightedNodeIds.has(edge.targetId));
+            return (
+              <g key={i} opacity={edgeDimmed ? 0.12 : 1}>
+                <GraphEdgeComponent
+                  edge={edge}
+                  sourceNode={edge.source}
+                  targetNode={edge.target}
+                  markerId={`ive-arrow-${edge.kind}`}
+                />
+              </g>
+            );
+          })}
+          {forceLayout.nodes.map(node => {
+            const nodeDimmed = hasHighlight && !highlightedNodeIds.has(node.id);
+            return (
+              <g key={node.id} opacity={nodeDimmed ? 0.15 : 1}>
+                <GraphNodeComponent
+                  node={node}
+                  isRoot={rootIdsSet.has(node.id)}
+                  hasCallees={callersSet.has(node.id)}
+                  isInCycle={cycleNodesSet.has(node.id)}
+                  isHighChurn={(node.recentChurnCount ?? 0) >= churnThreshold && churnThreshold < Infinity}
+                  isDeadCode={deadCodeSet.has(node.id)}
+                  isHighCoupling={highCouplingSet.has(node.id)}
+                  isHighImpact={highImpactSet.has(node.id)}
+                  onClick={handleNodeClick}
+                  onDrillDown={handleNodeDrillDown}
+                  onNavigate={onNavigate}
+                  onMouseDown={handleNodeMouseDown}
+                />
+              </g>
+            );
+          })}
         </g>
         <text x={8} y="98%" fontSize={10} fill="rgba(255,255,255,0.2)" style={{ userSelect: 'none', pointerEvents: 'none' }}>
           {data.nodes.length} nodes · {data.edges.length} edges

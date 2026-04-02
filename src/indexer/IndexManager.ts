@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { TreeSitterParser } from '../parser/TreeSitterParser.js';
-import { extractSymbols } from '../parser/symbolExtractor.js';
+import { extractSymbols, extractImports, extractTestBlocks, type ImportBinding } from '../parser/symbolExtractor.js';
 import { getLanguageForFile, getSupportedExtensions, getAllBuiltinMemberNames } from '../parser/languages.js';
 import { extractRawCallEdges, resolveEdges } from '../parser/callGraphExtractor.js';
 import { computeMetrics } from '../parser/complexityCalculator.js';
@@ -244,6 +244,7 @@ export class IndexManager {
     if (!this.db) return;
 
     const allRawEdges = [];
+    const importsByFile = new Map<number, ImportBinding[]>();
 
     for (const { fileId, tree, language } of processedFiles) {
       const symbols = this.db.getSymbolsByFileId(fileId);
@@ -260,13 +261,17 @@ export class IndexManager {
         });
       }
 
+      // Import bindings for alias resolution
+      const imports = extractImports(tree, language);
+      if (imports.length > 0) importsByFile.set(fileId, imports);
+
       // Raw call edges (names not yet resolved)
       const rawEdges = extractRawCallEdges(tree, language, symbols);
       allRawEdges.push(...rawEdges);
     }
 
     // Resolve all edges now that all symbols are in the DB
-    const resolvedEdges = resolveEdges(allRawEdges, this.db, getAllBuiltinMemberNames());
+    const resolvedEdges = resolveEdges(allRawEdges, this.db, getAllBuiltinMemberNames(), importsByFile);
     this.db.insertEdges(resolvedEdges);
 
     console.log(`IVE: Extracted ${resolvedEdges.length} call edges from ${allRawEdges.length} raw call sites.`);
@@ -338,7 +343,8 @@ export class IndexManager {
       if (!tree) return null;
 
       const symbols = extractSymbols(tree, language);
-      this.db.insertSymbols(fileId, symbols);
+      const testBlocks = extractTestBlocks(tree, language);
+      this.db.insertSymbols(fileId, [...symbols, ...testBlocks]);
 
       return { fileId, filePath, tree, language };
     } catch (err) {

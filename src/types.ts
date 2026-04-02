@@ -1,7 +1,7 @@
 export interface TreeNode {
   name: string;
   path?: string;
-  kind: 'workspace' | 'directory' | 'file' | 'function' | 'class' | 'method' | 'interface' | 'type' | 'enum' | 'variable';
+  kind: 'workspace' | 'directory' | 'file' | 'function' | 'class' | 'method' | 'interface' | 'type' | 'enum' | 'variable' | 'test';
   language?: string;
   loc: number;
   line?: number;
@@ -73,7 +73,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'indexProgress'; current: number; total: number }
   | { type: 'coverageData'; data: import('./indexer/graphAnalyzer.js').ProjectCoverage }
   | { type: 'dashboard'; data: DashboardData }
-  | { type: 'nodeDetail'; data: NodeDetailData };
+  | { type: 'nodeDetail'; data: NodeDetailData }
+  | { type: 'highlightNodes'; nodeIds: number[] };
 
 export type WebviewToExtensionMessage =
   | { type: 'ready' }

@@ -75,7 +75,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'indexProgress'; current: number; total: number }
   | { type: 'coverageData'; data: ProjectCoverage }
   | { type: 'dashboard'; data: DashboardData }
-  | { type: 'nodeDetail'; data: NodeDetailData };
+  | { type: 'nodeDetail'; data: NodeDetailData }
+  | { type: 'highlightNodes'; nodeIds: number[] };
 
 export type WebviewToExtensionMessage =
   | { type: 'ready' }

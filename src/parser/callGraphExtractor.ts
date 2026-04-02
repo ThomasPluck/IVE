@@ -2,6 +2,7 @@ import type Parser from 'web-tree-sitter';
 import { getLanguageConfig } from './languages.js';
 import { findNodeAtRange } from './astUtils.js';
 import type { IVEDatabase, SymbolRow } from '../indexer/database.js';
+import type { ImportBinding } from './symbolExtractor.js';
 
 export interface RawEdge {
   sourceSymbolId: number;
@@ -29,7 +30,7 @@ export function extractRawCallEdges(
   if (!config || config.callExpressionTypes.length === 0) return [];
 
   const callableSymbols = symbols.filter(s =>
-    s.kind === 'function' || s.kind === 'method'
+    s.kind === 'function' || s.kind === 'method' || s.kind === 'test'
   );
 
   const callExprSet = new Set(config.callExpressionTypes);
@@ -57,7 +58,12 @@ export function extractRawCallEdges(
   return edges;
 }
 
-export function resolveEdges(rawEdges: RawEdge[], db: IVEDatabase, builtinNames?: Set<string>): ResolvedEdge[] {
+export function resolveEdges(
+  rawEdges: RawEdge[],
+  db: IVEDatabase,
+  builtinNames?: Set<string>,
+  importsByFile?: Map<number, ImportBinding[]>
+): ResolvedEdge[] {
   const resolved: ResolvedEdge[] = [];
   const seen = new Set<string>();
 
@@ -65,6 +71,18 @@ export function resolveEdges(rawEdges: RawEdge[], db: IVEDatabase, builtinNames?
     if (raw.isMemberCall && builtinNames?.has(raw.calleeName)) continue;
 
     let candidates = db.lookupSymbolsByName(raw.calleeName);
+
+    // Fallback: if name not found, check import aliases for the original exported name
+    if (candidates.length === 0 && importsByFile) {
+      const imports = importsByFile.get(raw.sourceFileId);
+      if (imports) {
+        const binding = imports.find(b => b.localName === raw.calleeName);
+        if (binding && binding.importedName !== binding.localName) {
+          candidates = db.lookupSymbolsByName(binding.importedName);
+        }
+      }
+    }
+
     if (candidates.length === 0) continue;
 
     // Member calls (obj.method()) prefer methods over standalone functions

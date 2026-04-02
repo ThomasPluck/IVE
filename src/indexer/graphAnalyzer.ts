@@ -225,6 +225,167 @@ function computeImpactRadius(adj: Map<number, number[]>, allIds: number[]): Map<
   return result;
 }
 
+/**
+ * Find the shortest call path from `fromId` to `toId` using BFS.
+ * Returns the ordered path [fromId, ..., toId] or null if unreachable.
+ */
+export function findCallPath(edges: Edge[], fromId: number, toId: number): number[] | null {
+  if (fromId === toId) return [fromId];
+
+  const adj = buildAdjacency(edges);
+  const parent = new Map<number, number>();
+  const visited = new Set<number>([fromId]);
+  const queue = [fromId];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    for (const neighbor of adj.get(node) ?? []) {
+      if (visited.has(neighbor)) continue;
+      visited.add(neighbor);
+      parent.set(neighbor, node);
+      if (neighbor === toId) {
+        // Reconstruct path
+        const path = [toId];
+        let cur = toId;
+        while (cur !== fromId) {
+          cur = parent.get(cur)!;
+          path.unshift(cur);
+        }
+        return path;
+      }
+      queue.push(neighbor);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Find shortest path treating edges as undirected (either direction).
+ * Returns ordered path or null. Direction labels indicate edge orientation.
+ */
+export function findCallPathUndirected(
+  edges: Edge[],
+  fromId: number,
+  toId: number
+): { path: number[]; directions: Array<'forward' | 'backward'> } | null {
+  if (fromId === toId) return { path: [fromId], directions: [] };
+
+  const forward = buildAdjacency(edges);
+  const reverse = buildReverseAdjacency(edges);
+
+  const parent = new Map<number, { from: number; dir: 'forward' | 'backward' }>();
+  const visited = new Set<number>([fromId]);
+  const queue = [fromId];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+
+    const neighbors: Array<{ id: number; dir: 'forward' | 'backward' }> = [];
+    for (const n of forward.get(node) ?? []) neighbors.push({ id: n, dir: 'forward' });
+    for (const n of reverse.get(node) ?? []) neighbors.push({ id: n, dir: 'backward' });
+
+    for (const { id: neighbor, dir } of neighbors) {
+      if (visited.has(neighbor)) continue;
+      visited.add(neighbor);
+      parent.set(neighbor, { from: node, dir });
+      if (neighbor === toId) {
+        const path = [toId];
+        const directions: Array<'forward' | 'backward'> = [];
+        let cur = toId;
+        while (cur !== fromId) {
+          const p = parent.get(cur)!;
+          directions.unshift(p.dir);
+          cur = p.from;
+          path.unshift(cur);
+        }
+        return { path, directions };
+      }
+      queue.push(neighbor);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get the N-hop neighborhood around a node (both directions).
+ * Returns the set of node IDs within `depth` hops.
+ */
+export function getNeighborhood(edges: Edge[], rootId: number, depth: number): Set<number> {
+  const forward = buildAdjacency(edges);
+  const reverse = buildReverseAdjacency(edges);
+  const visited = new Set<number>([rootId]);
+  let frontier = [rootId];
+
+  for (let d = 0; d < depth && frontier.length > 0; d++) {
+    const next: number[] = [];
+    for (const node of frontier) {
+      for (const n of forward.get(node) ?? []) {
+        if (!visited.has(n)) { visited.add(n); next.push(n); }
+      }
+      for (const n of reverse.get(node) ?? []) {
+        if (!visited.has(n)) { visited.add(n); next.push(n); }
+      }
+    }
+    frontier = next;
+  }
+
+  return visited;
+}
+
+/**
+ * Find which connected component a node belongs to (undirected).
+ * Returns the set of all node IDs in the same component.
+ */
+export function getConnectedComponent(edges: Edge[], nodeId: number): Set<number> {
+  return getNeighborhood(edges, nodeId, Infinity);
+}
+
+/**
+ * Find the deepest call chains from entry points.
+ * Returns the top N chains as arrays of node IDs (from entry to leaf).
+ */
+export function findDeepestChains(
+  edges: Edge[],
+  entryPointIds: number[],
+  topN: number = 5
+): number[][] {
+  const forward = buildAdjacency(edges);
+  const chains: number[][] = [];
+
+  for (const entry of entryPointIds) {
+    // DFS to find longest paths from this entry
+    const stack: Array<{ id: number; path: number[] }> = [{ id: entry, path: [entry] }];
+    const bestPathTo = new Map<number, number>(); // node → longest path length reaching it
+
+    while (stack.length > 0) {
+      const { id, path } = stack.pop()!;
+
+      // Skip if we've already found a longer path to this node
+      if ((bestPathTo.get(id) ?? 0) >= path.length && path.length > 1) continue;
+      bestPathTo.set(id, path.length);
+
+      const neighbors = forward.get(id) ?? [];
+      let isLeaf = true;
+
+      for (const n of neighbors) {
+        if (path.includes(n)) continue; // avoid cycles
+        isLeaf = false;
+        stack.push({ id: n, path: [...path, n] });
+      }
+
+      if (isLeaf && path.length >= 2) {
+        chains.push(path);
+      }
+    }
+  }
+
+  // Sort by length descending, return top N
+  chains.sort((a, b) => b.length - a.length);
+  return chains.slice(0, topN);
+}
+
 /** Derive module name from file path relative to workspace. */
 export function deriveModule(filePath: string, workspacePath: string): string {
   const normalized = filePath.replace(/\\/g, '/');

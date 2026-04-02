@@ -147,4 +147,36 @@ describe('resolveEdges', () => {
     expect(result[0].sourceId).toBe(5);
     expect(result[0].targetId).toBe(77);
   });
+
+  it('resolves aliased import via importsByFile fallback', () => {
+    // myTool is an alias for setTool — name lookup returns nothing for myTool,
+    // but the import map tells us to retry with setTool
+    let callCount = 0;
+    const db = {
+      lookupSymbolsByName(name: string) {
+        callCount++;
+        if (name === 'myTool') return []; // alias not found
+        if (name === 'setTool') return [{ id: 99, fileId: 2, kind: 'function' }];
+        return [];
+      },
+    } as any;
+
+    const rawEdges = [{
+      sourceSymbolId: 1,
+      calleeName: 'myTool',
+      sourceFileId: 1,
+      callLine: 5,
+      callText: 'myTool()',
+      isMemberCall: false,
+    }];
+
+    const importsByFile = new Map([
+      [1, [{ localName: 'myTool', importedName: 'setTool', sourceModule: 'instant-state' }]],
+    ]);
+
+    const result = resolveEdges(rawEdges, db, undefined, importsByFile);
+    expect(result).toHaveLength(1);
+    expect(result[0].targetId).toBe(99);
+    expect(callCount).toBe(2); // tried myTool, then setTool
+  });
 });

@@ -171,7 +171,7 @@ export class IVEDatabase {
 
     const pattern = `%${query}%`;
     const nodeResult = this.db.exec(
-      `${GRAPH_NODE_QUERY} WHERE s.name LIKE ? AND s.kind IN ('function', 'method') ORDER BY s.name LIMIT 50`,
+      `${GRAPH_NODE_QUERY} WHERE s.name LIKE ? AND s.kind IN ('function', 'method', 'test') ORDER BY s.name LIMIT 50`,
       [pattern]
     );
 
@@ -263,25 +263,30 @@ export class IVEDatabase {
     let nodeIds: number[];
 
     if (rootIds && rootIds.length > 0) {
-      // Return the root nodes + their direct callees
+      // Return the root nodes + their direct callees AND callers
       const placeholders = rootIds.map(() => '?').join(',');
       const calleeResult = this.db.exec(
         `SELECT DISTINCT target_symbol_id FROM edges WHERE source_symbol_id IN (${placeholders}) AND kind = 'call'`,
         rootIds
       );
       const calleeIds = (calleeResult[0]?.values ?? []).map((r: unknown[]) => r[0] as number);
-      nodeIds = [...new Set([...rootIds, ...calleeIds])];
+      const callerResult = this.db.exec(
+        `SELECT DISTINCT source_symbol_id FROM edges WHERE target_symbol_id IN (${placeholders}) AND kind = 'call'`,
+        rootIds
+      );
+      const callerIds = (callerResult[0]?.values ?? []).map((r: unknown[]) => r[0] as number);
+      nodeIds = [...new Set([...rootIds, ...calleeIds, ...callerIds])];
     } else {
       // Entry points: symbols with no incoming call edges (top-level functions)
       const entryResult = this.db.exec(
         `SELECT DISTINCT s.id FROM symbols s
          LEFT JOIN edges e ON s.id = e.target_symbol_id AND e.kind = 'call'
-         WHERE e.id IS NULL AND s.kind IN ('function', 'method')
+         WHERE e.id IS NULL AND s.kind IN ('function', 'method', 'test')
          LIMIT 100`
       );
       nodeIds = (entryResult[0]?.values ?? []).map((r: unknown[]) => r[0] as number);
 
-      // Also grab their direct callees for an interesting first view
+      // Also grab their direct callees and callers for a complete first view
       if (nodeIds.length > 0) {
         const placeholders = nodeIds.map(() => '?').join(',');
         const calleeResult = this.db.exec(
@@ -289,14 +294,19 @@ export class IVEDatabase {
           nodeIds
         );
         const calleeIds = (calleeResult[0]?.values ?? []).map((r: unknown[]) => r[0] as number);
-        nodeIds = [...new Set([...nodeIds, ...calleeIds])];
+        const callerResult = this.db.exec(
+          `SELECT DISTINCT source_symbol_id FROM edges WHERE target_symbol_id IN (${placeholders}) AND kind = 'call'`,
+          nodeIds
+        );
+        const callerIds = (callerResult[0]?.values ?? []).map((r: unknown[]) => r[0] as number);
+        nodeIds = [...new Set([...nodeIds, ...calleeIds, ...callerIds])];
       }
     }
 
     if (nodeIds.length === 0) {
       // Fallback: just show all functions if no edges were extracted yet
       const fallback = this.db.exec(
-        `SELECT s.id FROM symbols s WHERE s.kind IN ('function','method') LIMIT 80`
+        `SELECT s.id FROM symbols s WHERE s.kind IN ('function','method','test') LIMIT 80`
       );
       nodeIds = (fallback[0]?.values ?? []).map((r: unknown[]) => r[0] as number);
     }
@@ -375,7 +385,7 @@ export class IVEDatabase {
     const result = this.db.exec(
       `SELECT DISTINCT s.id FROM symbols s
        LEFT JOIN edges e ON s.id = e.target_symbol_id AND e.kind = 'call'
-       WHERE e.id IS NULL AND s.kind IN ('function', 'method')`
+       WHERE e.id IS NULL AND s.kind IN ('function', 'method', 'test')`
     );
     return (result[0]?.values ?? []).map((r: unknown[]) => r[0] as number);
   }
@@ -389,7 +399,7 @@ export class IVEDatabase {
   getSymbolFilePaths(): Map<number, string> {
     if (!this.db) return new Map();
     const result = this.db.exec(
-      `SELECT s.id, f.path FROM symbols s JOIN files f ON s.file_id = f.id WHERE s.kind IN ('function', 'method')`
+      `SELECT s.id, f.path FROM symbols s JOIN files f ON s.file_id = f.id WHERE s.kind IN ('function', 'method', 'test')`
     );
     const map = new Map<number, string>();
     for (const row of result[0]?.values ?? []) {
@@ -561,7 +571,7 @@ export class IVEDatabase {
   getUnannotatedSymbolCount(): number {
     if (!this.db) return 0;
     const r = this.db.exec(
-      `SELECT COUNT(*) FROM symbols s WHERE s.kind IN ('function','method') AND s.id NOT IN (SELECT symbol_id FROM annotations WHERE symbol_id IS NOT NULL)`
+      `SELECT COUNT(*) FROM symbols s WHERE s.kind IN ('function','method','test') AND s.id NOT IN (SELECT symbol_id FROM annotations WHERE symbol_id IS NOT NULL)`
     );
     return (r[0]?.values[0]?.[0] as number) ?? 0;
   }

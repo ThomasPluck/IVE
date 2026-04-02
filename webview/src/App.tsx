@@ -13,6 +13,7 @@ export default function App() {
   const [drillStack, setDrillStack] = useState<DrillEntry[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [nodeDetail, setNodeDetail] = useState<NodeDetailData | null>(null);
+  const [highlightedNodeIds, setHighlightedNodeIds] = useState<Set<number>>(new Set());
 
   const onMessage = useCallback((msg: ExtensionToWebviewMessage) => {
     switch (msg.type) {
@@ -21,6 +22,7 @@ export default function App() {
         setCleanGraphData(msg.data);
         setDiffMode(false);
         setProgress(null);
+        setHighlightedNodeIds(new Set());
         break;
       case 'diffData':
         setGraphData(msg.data);
@@ -36,6 +38,9 @@ export default function App() {
         break;
       case 'nodeDetail':
         setNodeDetail(msg.data);
+        break;
+      case 'highlightNodes':
+        setHighlightedNodeIds(new Set(msg.nodeIds));
         break;
     }
   }, []);
@@ -104,6 +109,8 @@ export default function App() {
         diffMode={diffMode}
         onShowDeadCode={handleShowDeadCode}
         onSelectNode={handleSelectNode}
+        highlightedNodeIds={highlightedNodeIds}
+        onClearHighlight={() => setHighlightedNodeIds(new Set())}
       />
       <NodeDetailPanel
         detail={nodeDetail}

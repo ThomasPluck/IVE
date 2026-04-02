@@ -9,7 +9,7 @@ import * as crypto from 'crypto';
 import Parser from 'web-tree-sitter';
 import { IVEDatabase } from '../indexer/database.js';
 import { getLanguageForFile, getLanguageConfig, getSupportedExtensions, getAllBuiltinMemberNames } from '../parser/languages.js';
-import { extractSymbols } from '../parser/symbolExtractor.js';
+import { extractSymbols, extractImports, extractTestBlocks, type ImportBinding } from '../parser/symbolExtractor.js';
 import { extractRawCallEdges, resolveEdges } from '../parser/callGraphExtractor.js';
 import { computeMetrics } from '../parser/complexityCalculator.js';
 import { detectCycles } from '../indexer/cycleDetector.js';
@@ -120,7 +120,8 @@ async function main() {
       if (!tree) continue;
 
       const symbols = extractSymbols(tree, language);
-      db.insertSymbols(fileId, symbols);
+      const testBlocks = extractTestBlocks(tree, language);
+      db.insertSymbols(fileId, [...symbols, ...testBlocks]);
       processed.push({ fileId, filePath, tree, language });
     } catch (err) {
       console.error(`IVE CLI: Error processing ${filePath}:`, err);
@@ -133,6 +134,8 @@ async function main() {
   let edgeCount = 0;
   time('edges+metrics', () => {
     const allRawEdges = [];
+    const importsByFile = new Map<number, ImportBinding[]>();
+
     for (const { fileId, tree, language } of processed) {
       const symbols = db.getSymbolsByFileId(fileId);
       if (symbols.length === 0) continue;
@@ -142,11 +145,14 @@ async function main() {
         db.insertMetrics(m.symbolId, { cyclomatic: m.cyclomatic, cognitive: m.cognitive, paramCount: m.paramCount, maxLoopDepth: m.maxLoopDepth });
       }
 
+      const imports = extractImports(tree, language);
+      if (imports.length > 0) importsByFile.set(fileId, imports);
+
       const rawEdges = extractRawCallEdges(tree, language, symbols);
       allRawEdges.push(...rawEdges);
     }
 
-    const resolvedEdges = resolveEdges(allRawEdges, db, getAllBuiltinMemberNames());
+    const resolvedEdges = resolveEdges(allRawEdges, db, getAllBuiltinMemberNames(), importsByFile);
     db.insertEdges(resolvedEdges);
     edgeCount = resolvedEdges.length;
 

@@ -47,4 +47,33 @@ export const SetArchitectureSchema = z.object({
   allowed_deps: z.array(z.string()).describe('List of modules this module is allowed to depend on'),
 });
 
+export const FindPathSchema = z.object({
+  from_id: z.number().describe('Starting symbol ID'),
+  to_id: z.number().describe('Target symbol ID'),
+});
+
+export const HighlightSchema = z.object({
+  node_ids: z.array(z.number()).optional().describe('Node IDs to highlight (empty array clears highlight)'),
+  node_names: z.array(z.string()).optional().describe('Function names to highlight (resolved to IDs via search)'),
+});
+
+export const SelectPathSchema = z.object({
+  from_id: z.number().optional().describe('Starting symbol ID'),
+  to_id: z.number().optional().describe('Target symbol ID'),
+  from_name: z.string().optional().describe('Starting function name (resolved via search)'),
+  to_name: z.string().optional().describe('Target function name (resolved via search)'),
+});
+
+export const NeighborhoodSchema = z.object({
+  id: z.number().optional().describe('Symbol ID of the center node'),
+  name: z.string().optional().describe('Function name (supports name@file syntax for disambiguation)'),
+  depth: z.number().optional().describe('Number of hops to expand (default: 2)'),
+});
+
+export const HighlightClusterSchema = z.object({
+  id: z.number().optional().describe('Symbol ID of the center node'),
+  name: z.string().optional().describe('Function name (supports name@file syntax)'),
+  strategy: z.string().optional().describe('Cluster strategy: "neighborhood" (default, 2-hop), "high_coupling" (only high-coupling nodes within 2 hops), "deep_chain" (longest forward chain)'),
+});
+
 export const EmptySchema = z.object({});

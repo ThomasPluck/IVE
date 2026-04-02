@@ -172,3 +172,157 @@ describe('ive_annotate + ive_get_annotations', () => {
     expect(annotations).not.toContain('first version');
   });
 });
+
+describe('ive_find_path', () => {
+  it('finds shortest call path between two symbols', () => {
+    const s1 = call('ive_search', { query: 'indexAll' });
+    const s2 = call('ive_search', { query: 'parseBar' });
+    const fromId = Number(s1.match(/\[(\d+)\] indexAll/)![1]);
+    const toId = Number(s2.match(/\[(\d+)\] parseBar/)![1]);
+
+    const out = call('ive_find_path', { from_id: fromId, to_id: toId });
+    expect(out).toContain('Call path');
+    expect(out).toContain('indexAll');
+    expect(out).toContain('parseFoo');
+    expect(out).toContain('parseBar');
+    expect(out).toContain('3 steps');
+  });
+
+  it('diagnoses no direct path with reverse and undirected hints', () => {
+    const s1 = call('ive_search', { query: 'parseBar' });
+    const s2 = call('ive_search', { query: 'indexAll' });
+    const fromId = Number(s1.match(/\[(\d+)\] parseBar/)![1]);
+    const toId = Number(s2.match(/\[(\d+)\] indexAll/)![1]);
+
+    const out = call('ive_find_path', { from_id: fromId, to_id: toId });
+    expect(out).toContain('No direct call path');
+    expect(out).toContain('Reverse path exists');
+    expect(out).toContain('Undirected connection');
+  });
+});
+
+describe('ive_highlight', () => {
+  it('writes viewer command file and confirms', () => {
+    const out = call('ive_highlight', { node_ids: [1, 2, 3] });
+    expect(out).toContain('Highlighted 3 node(s)');
+    expect(out).toContain('Panel must be open');
+
+    const cmdPath = path.join(tmpDir, '.ive', 'viewer-cmd.json');
+    expect(fs.existsSync(cmdPath)).toBe(true);
+    const cmd = JSON.parse(fs.readFileSync(cmdPath, 'utf-8'));
+    expect(cmd.action).toBe('highlight');
+    expect(cmd.payload.nodeIds).toEqual([1, 2, 3]);
+  });
+
+  it('clears highlight with empty array', () => {
+    const out = call('ive_highlight', { node_ids: [] });
+    expect(out).toContain('Highlight cleared');
+
+    const cmdPath = path.join(tmpDir, '.ive', 'viewer-cmd.json');
+    const cmd = JSON.parse(fs.readFileSync(cmdPath, 'utf-8'));
+    expect(cmd.payload.nodeIds).toEqual([]);
+  });
+
+  it('resolves node_names to IDs', () => {
+    const out = call('ive_highlight', { node_names: ['parseFoo', 'indexAll'] });
+    expect(out).toContain('Highlighted 2 node(s)');
+    expect(out).toContain('parseFoo (id=');
+    expect(out).toContain('indexAll (id=');
+
+    const cmdPath = path.join(tmpDir, '.ive', 'viewer-cmd.json');
+    const cmd = JSON.parse(fs.readFileSync(cmdPath, 'utf-8'));
+    expect(cmd.payload.nodeIds).toHaveLength(2);
+  });
+
+  it('returns error for ambiguous or unknown names', () => {
+    const out = call('ive_highlight', { node_names: ['nonexistent'] });
+    expect(out).toContain('Error');
+  });
+});
+
+describe('ive_select_path', () => {
+  it('finds path and writes viewer command by ID', () => {
+    const s1 = call('ive_search', { query: 'indexAll' });
+    const s2 = call('ive_search', { query: 'parseBar' });
+    const fromId = Number(s1.match(/\[(\d+)\] indexAll/)![1]);
+    const toId = Number(s2.match(/\[(\d+)\] parseBar/)![1]);
+
+    const out = call('ive_select_path', { from_id: fromId, to_id: toId });
+    expect(out).toContain('Call path');
+    expect(out).toContain('3 steps');
+    expect(out).toContain('highlighted in IVE viewer');
+
+    const cmdPath = path.join(tmpDir, '.ive', 'viewer-cmd.json');
+    expect(fs.existsSync(cmdPath)).toBe(true);
+    const cmd = JSON.parse(fs.readFileSync(cmdPath, 'utf-8'));
+    expect(cmd.action).toBe('highlight');
+    expect(cmd.payload.nodeIds).toHaveLength(3);
+  });
+
+  it('finds path by function name', () => {
+    const out = call('ive_select_path', { from_name: 'indexAll', to_name: 'parseBar' });
+    expect(out).toContain('Call path');
+    expect(out).toContain('3 steps');
+    expect(out).toContain('highlighted in IVE viewer');
+    // Output uses name (id=N) format
+    expect(out).toMatch(/indexAll \(id=\d+/);
+    expect(out).toMatch(/parseBar \(id=\d+/);
+  });
+
+  it('diagnoses no direct path and highlights undirected connection', () => {
+    const out = call('ive_select_path', { from_name: 'parseBar', to_name: 'indexAll' });
+    expect(out).toContain('No direct call path');
+    expect(out).toContain('Undirected connection');
+    expect(out).toContain('highlighted in viewer');
+
+    // Undirected path should be highlighted
+    const cmdPath = path.join(tmpDir, '.ive', 'viewer-cmd.json');
+    expect(fs.existsSync(cmdPath)).toBe(true);
+  });
+});
+
+describe('ive_get_neighborhood', () => {
+  it('returns neighborhood by name and highlights', () => {
+    const out = call('ive_get_neighborhood', { name: 'parseFoo', depth: 1 });
+    expect(out).toContain('Neighborhood of parseFoo');
+    expect(out).toContain('[ROOT]');
+    // parseFoo has caller indexAll and callee parseBar — both within 1 hop
+    expect(out).toContain('indexAll');
+    expect(out).toContain('parseBar');
+
+    const cmdPath = path.join(tmpDir, '.ive', 'viewer-cmd.json');
+    expect(fs.existsSync(cmdPath)).toBe(true);
+  });
+
+  it('returns error for unknown name', () => {
+    const out = call('ive_get_neighborhood', { name: 'nonexistent' });
+    expect(out).toContain('Error');
+  });
+});
+
+describe('ive_suggest_highlights', () => {
+  it('returns suggestions with node IDs', () => {
+    const out = call('ive_suggest_highlights');
+    expect(out).toContain('Suggested Highlights');
+    expect(out).toContain('ive_highlight');
+    // Should have at least one suggestion
+    expect(out).toMatch(/1\./);
+  });
+});
+
+describe('ive_highlight_cluster', () => {
+  it('highlights neighborhood cluster by name', () => {
+    const out = call('ive_highlight_cluster', { name: 'parseFoo', strategy: 'neighborhood' });
+    expect(out).toContain('neighborhood');
+    expect(out).toContain('parseFoo');
+    expect(out).toContain('[ROOT]');
+    expect(out).toContain('Highlighted in viewer');
+  });
+
+  it('highlights deep chain from a node', () => {
+    const out = call('ive_highlight_cluster', { name: 'indexAll', strategy: 'deep_chain' });
+    expect(out).toContain('Deepest chain');
+    expect(out).toContain('indexAll');
+    expect(out).toContain('parseBar');
+  });
+});

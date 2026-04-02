@@ -6,7 +6,7 @@ import { IndexManager } from '../indexer/IndexManager.js';
 import { getDiffSummary } from '../indexer/diffAnalyzer.js';
 import type { GraphData, DashboardData, NodeDetailData, WebviewToExtensionMessage, ExtensionToWebviewMessage } from '../types.js';
 import type { DiffSummary } from '../indexer/diffAnalyzer.js';
-import { detectModuleBoundaries } from '../indexer/graphAnalyzer.js';
+import { detectModuleBoundaries, findCallPath } from '../indexer/graphAnalyzer.js';
 
 export class IVEPanelProvider implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
@@ -62,6 +62,22 @@ export class IVEPanelProvider implements vscode.WebviewViewProvider {
     }
 
     this.postMessage({ type: 'diffData', data: annotateDiffStatus(graphData, diff) });
+  }
+
+  highlightPath(fromId: number, toId: number): void {
+    const db = this.indexManager.getDatabase();
+    if (!db) return;
+    const edges = db.getAllEdges();
+    const pathIds = findCallPath(edges, fromId, toId);
+    this.postMessage({ type: 'highlightNodes', nodeIds: pathIds ?? [] });
+  }
+
+  clearHighlight(): void {
+    this.postMessage({ type: 'highlightNodes', nodeIds: [] });
+  }
+
+  highlightNodes(nodeIds: number[]): void {
+    this.postMessage({ type: 'highlightNodes', nodeIds });
   }
 
   // ── Message dispatch ─────────────────────────────────────────────────────

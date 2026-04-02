@@ -4,6 +4,7 @@ import {
   computeStructuralMetrics,
   detectModuleBoundaries,
   deriveModule,
+  findCallPath,
 } from '../indexer/graphAnalyzer.js';
 
 // ── computeReachability ──────────────────────────────────────────────────────
@@ -207,5 +208,39 @@ describe('deriveModule', () => {
 
   it('root file with no workspace prefix → returns first two segments', () => {
     expect(deriveModule('src/parser/foo.ts', '/other')).toBe('src/parser');
+  });
+});
+
+// ── findCallPath ────────────────────────────────────────────────────────────
+
+describe('findCallPath', () => {
+  const edges = [
+    { sourceId: 1, targetId: 2 },
+    { sourceId: 2, targetId: 3 },
+    { sourceId: 3, targetId: 4 },
+  ];
+
+  it('finds direct path', () => {
+    expect(findCallPath(edges, 1, 2)).toEqual([1, 2]);
+  });
+
+  it('finds multi-hop path', () => {
+    expect(findCallPath(edges, 1, 4)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('returns null for unreachable target', () => {
+    expect(findCallPath(edges, 4, 1)).toBeNull();
+  });
+
+  it('returns single-element path for same node', () => {
+    expect(findCallPath(edges, 2, 2)).toEqual([2]);
+  });
+
+  it('finds shortest path when multiple exist', () => {
+    const edgesWithShortcut = [
+      ...edges,
+      { sourceId: 1, targetId: 4 }, // shortcut
+    ];
+    expect(findCallPath(edgesWithShortcut, 1, 4)).toEqual([1, 4]);
   });
 });

@@ -36,6 +36,32 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // ── Viewer command IPC: watch .ive/viewer-cmd.json from MCP server ──────
+  if (ws) {
+    const cmdPattern = new vscode.RelativePattern(ws, '.ive/viewer-cmd.json');
+    const cmdWatcher = vscode.workspace.createFileSystemWatcher(cmdPattern);
+
+    const processViewerCommand = () => {
+      const cmdPath = path.join(ws, '.ive', 'viewer-cmd.json');
+      try {
+        if (!fs.existsSync(cmdPath)) return;
+        const raw = fs.readFileSync(cmdPath, 'utf-8');
+        fs.unlinkSync(cmdPath);
+        const cmd = JSON.parse(raw);
+        if (cmd.action === 'highlight' && Array.isArray(cmd.payload?.nodeIds)) {
+          provider.highlightNodes(cmd.payload.nodeIds);
+        }
+      } catch { /* ignore malformed or race conditions */ }
+    };
+
+    cmdWatcher.onDidCreate(processViewerCommand);
+    cmdWatcher.onDidChange(processViewerCommand);
+    context.subscriptions.push(cmdWatcher);
+
+    // Process any command written before extension activated
+    processViewerCommand();
+  }
+
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument(async (doc) => {
       if (indexManager) {

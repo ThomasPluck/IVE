@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractSymbols } from '../parser/symbolExtractor.js';
+import { extractSymbols, extractImports, extractTestBlocks } from '../parser/symbolExtractor.js';
 import { node, ident } from './helpers/mockNode.js';
 
 /** Wrap children in a program root node */
@@ -195,5 +195,105 @@ describe('extractSymbols — Go', () => {
     const syms = extractSymbols(tree as any, 'go');
     expect(syms).toHaveLength(1);
     expect(syms[0].kind).toBe('method');
+  });
+});
+
+// ── extractImports ──────────────────────────────────────────────────────────
+
+describe('extractImports', () => {
+  it('extracts named imports', () => {
+    // import { setTool } from 'instant-state'
+    const specifier = node('import_specifier', {
+      text: 'setTool',
+      fields: { name: ident('setTool') },
+      children: [ident('setTool')],
+    });
+    const namedImports = node('named_imports', { children: [specifier] });
+    const importClause = node('import_clause', { children: [namedImports] });
+    const source = node('string', { text: "'instant-state'" });
+    const importStmt = node('import_statement', {
+      children: [importClause, source],
+      fields: { source },
+    });
+    const tree = program(importStmt);
+    const imports = extractImports(tree as any, 'typescript');
+    expect(imports).toHaveLength(1);
+    expect(imports[0].localName).toBe('setTool');
+    expect(imports[0].importedName).toBe('setTool');
+    expect(imports[0].sourceModule).toBe('instant-state');
+  });
+
+  it('extracts aliased imports', () => {
+    // import { setTool as myTool } from 'instant-state'
+    const specifier = node('import_specifier', {
+      text: 'setTool as myTool',
+      fields: { name: ident('setTool'), alias: ident('myTool') },
+      children: [ident('setTool'), ident('myTool')],
+    });
+    const namedImports = node('named_imports', { children: [specifier] });
+    const importClause = node('import_clause', { children: [namedImports] });
+    const source = node('string', { text: "'instant-state'" });
+    const importStmt = node('import_statement', {
+      children: [importClause, source],
+      fields: { source },
+    });
+    const tree = program(importStmt);
+    const imports = extractImports(tree as any, 'typescript');
+    expect(imports).toHaveLength(1);
+    expect(imports[0].localName).toBe('myTool');
+    expect(imports[0].importedName).toBe('setTool');
+  });
+
+  it('returns empty for unsupported languages', () => {
+    const tree = program();
+    expect(extractImports(tree as any, 'rust')).toHaveLength(0);
+  });
+});
+
+// ── extractTestBlocks ───────────────────────────────────────────────────────
+
+describe('extractTestBlocks', () => {
+  it('extracts test() calls as test symbols', () => {
+    // test('my test', () => {})
+    const testName = node('string', { text: "'my test'", start: 0, end: 0 });
+    const callback = node('arrow_function', { start: 0, end: 5, children: [] });
+    const openParen = node('(', { text: '(' });
+    const comma = node(',', { text: ',' });
+    const closeParen = node(')', { text: ')' });
+    const args = node('arguments', {
+      children: [openParen, testName, comma, callback, closeParen],
+    });
+    const callExpr = node('call_expression', {
+      start: 0, end: 5,
+      fields: { function: ident('test'), arguments: args },
+      children: [ident('test'), args],
+    });
+    const tree = program(callExpr);
+    const blocks = extractTestBlocks(tree as any, 'typescript');
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].kind).toBe('test');
+    expect(blocks[0].name).toContain('my test');
+  });
+
+  it('extracts describe() calls', () => {
+    const describeName = node('string', { text: "'my suite'", start: 0, end: 0 });
+    const callback = node('arrow_function', { start: 0, end: 10, children: [] });
+    const args = node('arguments', {
+      children: [node('(', {}), describeName, node(',', {}), callback, node(')', {})],
+    });
+    const callExpr = node('call_expression', {
+      start: 0, end: 10,
+      fields: { function: ident('describe'), arguments: args },
+      children: [ident('describe'), args],
+    });
+    const tree = program(callExpr);
+    const blocks = extractTestBlocks(tree as any, 'typescript');
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].name).toContain('my suite');
+  });
+
+  it('returns empty for unsupported languages', () => {
+    const tree = program();
+    expect(extractTestBlocks(tree as any, 'python')).toHaveLength(0);
   });
 });

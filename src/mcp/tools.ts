@@ -3,7 +3,15 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import type { IVEDatabase } from '../indexer/database.js';
 import type { GraphNode } from '../types.js';
-import { detectModuleBoundaries } from '../indexer/graphAnalyzer.js';
+import {
+  detectModuleBoundaries,
+  findCallPath,
+  findCallPathUndirected,
+  getNeighborhood,
+  getConnectedComponent,
+  findDeepestChains,
+} from '../indexer/graphAnalyzer.js';
+import { writeViewerCommand } from './viewerCommands.js';
 
 type ToolResult = { content: Array<{ type: 'text'; text: string }> };
 type Args = Record<string, unknown>;
@@ -454,6 +462,452 @@ function handleFindRisks({ db, ws }: Ctx, args: Args): ToolResult {
   return text(`${out}\n\n${lines.join('\n')}`);
 }
 
+// ── Path finding ────────────────────────────────────────────────────────────
+
+/** Format a forward path as indented text. */
+function fmtPath(db: IVEDatabase, pathIds: number[], ws: string): string {
+  return pathIds.map((id, i) => {
+    const n = db.getSymbolById(id);
+    if (!n) return `  [${id}] ???`;
+    const arrow = i < pathIds.length - 1 ? ' →' : '';
+    return `  ${'  '.repeat(i)}${n.name} (id=${id}, ${n.kind}) — ${rel(n.filePath, ws)}:${n.line}${arrow}`;
+  }).join('\n');
+}
+
+/** Diagnose why no direct call path exists between two nodes. */
+function diagnoseNoPath(db: IVEDatabase, edges: Array<{sourceId: number; targetId: number}>, fromId: number, toId: number, fromNode: GraphNode, toNode: GraphNode, ws: string): string {
+  let out = `No direct call path from ${fromNode.name} (id=${fromId}) to ${toNode.name} (id=${toId}).\n`;
+
+  // Check reverse direction
+  const reversePath = findCallPath(edges, toId, fromId);
+  if (reversePath) {
+    out += `\nReverse path exists (${toNode.name} → ${fromNode.name}, ${reversePath.length} steps):\n`;
+    out += fmtPath(db, reversePath, ws);
+    out += `\n`;
+  }
+
+  // Try undirected path
+  const undirected = findCallPathUndirected(edges, fromId, toId);
+  if (undirected) {
+    const steps = undirected.path.map((id, i) => {
+      const n = db.getSymbolById(id);
+      const name = n?.name ?? '???';
+      if (i === 0) return name;
+      const dir = undirected.directions[i - 1] === 'forward' ? '→' : '←';
+      return `${dir} ${name}`;
+    }).join(' ');
+    out += `\nUndirected connection (${undirected.path.length} steps, ignoring edge direction):\n  ${steps}\n`;
+  } else {
+    // They're in separate subgraphs
+    const comp1 = getConnectedComponent(edges, fromId);
+    const comp2 = getConnectedComponent(edges, toId);
+    out += `\nThese are in separate subgraphs (${comp1.size} and ${comp2.size} nodes respectively). No connection exists even ignoring edge direction.\n`;
+  }
+
+  // Show modules
+  const metrics = db.getStructuralMetrics();
+  const fromMod = metrics.get(fromId)?.module ?? '?';
+  const toMod = metrics.get(toId)?.module ?? '?';
+  if (fromMod !== toMod) {
+    out += `\nModules: ${fromMod} → ${toMod}`;
+  }
+
+  return out;
+}
+
+function handleFindPath({ db, ws }: Ctx, args: Args): ToolResult {
+  const fromId = args.from_id as number;
+  const toId = args.to_id as number;
+  if (fromId == null || toId == null) return err('from_id and to_id are required');
+
+  const fromNode = db.getSymbolById(fromId);
+  const toNode = db.getSymbolById(toId);
+  if (!fromNode) return err(`symbol ${fromId} not found`);
+  if (!toNode) return err(`symbol ${toId} not found`);
+
+  const edges = db.getAllEdges();
+  const path = findCallPath(edges, fromId, toId);
+
+  if (!path) return text(diagnoseNoPath(db, edges, fromId, toId, fromNode, toNode, ws));
+
+  return text(`Call path (${path.length} steps):\n\n${fmtPath(db, path, ws)}`);
+}
+
+// ── Name resolution ────────────────────────────────────────────────────────
+
+/**
+ * Resolve a function name to a single symbol ID.
+ * Supports "name@file" syntax to disambiguate (e.g. "setupListener@ViewportSync").
+ * When ambiguous, falls back to highest-coupling match instead of erroring.
+ */
+function resolveNameToId(db: IVEDatabase, name: string, ws: string): { id: number; node: GraphNode } | ToolResult {
+  // Support "name@file" syntax: name@partial/path filters by file path
+  let searchName = name;
+  let fileFilter: string | null = null;
+  const atIdx = name.lastIndexOf('@');
+  if (atIdx > 0) {
+    searchName = name.slice(0, atIdx);
+    fileFilter = name.slice(atIdx + 1);
+  }
+
+  const results = db.searchSymbols(searchName);
+  let candidates = results.nodes.filter(n => n.name === searchName);
+
+  // Apply file filter if provided
+  if (fileFilter && candidates.length > 0) {
+    const filtered = candidates.filter(n => n.filePath.includes(fileFilter!));
+    if (filtered.length > 0) candidates = filtered;
+  }
+
+  if (candidates.length === 1) return { id: candidates[0].id, node: candidates[0] };
+
+  if (candidates.length > 1) {
+    // Fall back to highest coupling instead of erroring
+    const metrics = db.getStructuralMetrics();
+    candidates.sort((a, b) => (metrics.get(b.id)?.coupling ?? 0) - (metrics.get(a.id)?.coupling ?? 0));
+    const picked = candidates[0];
+    const others = candidates.slice(1, 4).map(n => {
+      const c = metrics.get(n.id)?.coupling ?? 0;
+      return `  ${n.name} (id=${n.id}, coupling=${c}) — ${rel(n.filePath, ws)}:${n.line}`;
+    }).join('\n');
+    const pickedCoupling = metrics.get(picked.id)?.coupling ?? 0;
+    // Return the highest-coupling match with a note about alternatives
+    return {
+      id: picked.id,
+      node: picked,
+      note: `Resolved "${searchName}" to highest-coupling match: ${picked.name} (id=${picked.id}, coupling=${pickedCoupling}) — ${rel(picked.filePath, ws)}:${picked.line}\nOther matches:\n${others}${candidates.length > 4 ? `\n  ... and ${candidates.length - 4} more (use name@file to filter)` : ''}`,
+    } as { id: number; node: GraphNode };
+  }
+
+  if (results.nodes.length === 0) return err(`no symbol named "${searchName}"`);
+  const options = results.nodes.slice(0, 10).map(n => `  ${n.name} (id=${n.id}) — ${rel(n.filePath, ws)}:${n.line}`).join('\n');
+  return err(`no exact match for "${searchName}". Did you mean:\n${options}`);
+}
+
+function isToolResult(v: unknown): v is ToolResult {
+  return typeof v === 'object' && v !== null && 'content' in v;
+}
+
+// ── Viewer control ─────────────────────────────────────────────────────────
+
+function handleHighlight({ db, ws }: Ctx, args: Args): ToolResult {
+  const rawIds = args.node_ids as number[] | undefined;
+  const rawNames = args.node_names as string[] | undefined;
+
+  if (!rawIds && !rawNames) return err('provide node_ids or node_names');
+
+  // Resolve names to IDs
+  const nodeIds: number[] = rawIds ? [...rawIds] : [];
+  if (rawNames) {
+    for (const name of rawNames) {
+      const resolved = resolveNameToId(db, name, ws);
+      if (isToolResult(resolved)) return resolved;
+      nodeIds.push(resolved.id);
+    }
+  }
+
+  writeViewerCommand(ws, {
+    action: 'highlight',
+    payload: { nodeIds },
+    timestamp: Date.now(),
+  });
+
+  if (nodeIds.length === 0) {
+    return text('Highlight cleared in IVE viewer.\n(Panel must be open to see the effect.)');
+  }
+
+  const labels = nodeIds.map(id => {
+    const n = db.getSymbolById(id);
+    return n ? `${n.name} (id=${id})` : `id=${id}`;
+  });
+  return text(`Highlighted ${nodeIds.length} node(s) in IVE viewer:\n${labels.map(l => `  ${l}`).join('\n')}\n\n(Panel must be open to see the effect.)`);
+}
+
+function handleSelectPath({ db, ws }: Ctx, args: Args): ToolResult {
+  let fromId = args.from_id as number | undefined;
+  let toId = args.to_id as number | undefined;
+  const fromName = args.from_name as string | undefined;
+  const toName = args.to_name as string | undefined;
+
+  // Resolve names to IDs
+  if (!fromId && fromName) {
+    const resolved = resolveNameToId(db, fromName, ws);
+    if (isToolResult(resolved)) return resolved;
+    fromId = resolved.id;
+  }
+  if (!toId && toName) {
+    const resolved = resolveNameToId(db, toName, ws);
+    if (isToolResult(resolved)) return resolved;
+    toId = resolved.id;
+  }
+
+  if (fromId == null || toId == null) return err('provide from_id/to_id or from_name/to_name');
+
+  const fromNode = db.getSymbolById(fromId);
+  const toNode = db.getSymbolById(toId);
+  if (!fromNode) return err(`symbol ${fromId} not found`);
+  if (!toNode) return err(`symbol ${toId} not found`);
+
+  const edges = db.getAllEdges();
+  const pathIds = findCallPath(edges, fromId, toId);
+
+  if (!pathIds) {
+    // Try undirected — if found, highlight that instead
+    const undirected = findCallPathUndirected(edges, fromId, toId);
+    if (undirected) {
+      writeViewerCommand(ws, {
+        action: 'highlight',
+        payload: { nodeIds: undirected.path },
+        timestamp: Date.now(),
+      });
+    }
+    return text(diagnoseNoPath(db, edges, fromId, toId, fromNode, toNode, ws)
+      + (undirected ? '\n\n(Undirected connection highlighted in viewer.)' : '')
+      + '\n(Panel must be open to see the effect.)');
+  }
+
+  writeViewerCommand(ws, {
+    action: 'highlight',
+    payload: { nodeIds: pathIds },
+    timestamp: Date.now(),
+  });
+
+  return text(`Call path (${pathIds.length} steps) — highlighted in IVE viewer:\n\n${fmtPath(db, pathIds, ws)}\n\n(Panel must be open to see the effect.)`);
+}
+
+// ── Exploration tools ──────────────────────────────────────────────────────
+
+function handleGetNeighborhood({ db, ws }: Ctx, args: Args): ToolResult {
+  let id = args.id as number | undefined;
+  const name = args.name as string | undefined;
+  const depth = (args.depth as number) ?? 2;
+
+  if (!id && name) {
+    const resolved = resolveNameToId(db, name, ws);
+    if (isToolResult(resolved)) return resolved;
+    id = resolved.id;
+  }
+  if (id == null) return err('provide id or name');
+
+  const rootNode = db.getSymbolById(id);
+  if (!rootNode) return err(`symbol ${id} not found`);
+
+  const edges = db.getAllEdges();
+  const neighborIds = getNeighborhood(edges, id, depth);
+
+  // Build node list with metrics
+  const metrics = db.getStructuralMetrics();
+  const nodes: Array<{ node: GraphNode; coupling: number; relation: string }> = [];
+  for (const nid of neighborIds) {
+    const n = db.getSymbolById(nid);
+    if (!n) continue;
+    const c = metrics.get(nid)?.coupling ?? 0;
+    const relation = nid === id ? 'ROOT' : '';
+    nodes.push({ node: n, coupling: c, relation });
+  }
+  nodes.sort((a, b) => b.coupling - a.coupling);
+
+  // Highlight in viewer
+  writeViewerCommand(ws, {
+    action: 'highlight',
+    payload: { nodeIds: [...neighborIds] },
+    timestamp: Date.now(),
+  });
+
+  let out = `Neighborhood of ${rootNode.name} (id=${id}) within ${depth} hops — ${neighborIds.size} nodes:\n\n`;
+  for (const { node: n, coupling: c, relation } of nodes) {
+    const marker = relation ? ` [${relation}]` : '';
+    out += `  ${n.name} (id=${n.id}, coupling=${c}) — ${rel(n.filePath, ws)}:${n.line}${marker}\n`;
+  }
+  out += `\n(Highlighted in viewer. Panel must be open to see the effect.)`;
+  return text(out);
+}
+
+function handleSuggestHighlights({ db, ws }: Ctx): ToolResult {
+  const edges = db.getAllEdges();
+  const metrics = db.getStructuralMetrics();
+  const coverage = db.getProjectCoverage();
+  const annotations = db.getAnnotations();
+  const annotatedIds = new Set(annotations.filter(a => a.symbolId != null).map(a => a.symbolId));
+
+  const suggestions: Array<{ title: string; why: string; nodeIds: number[]; score: number }> = [];
+
+  // 1. Highest-coupling cluster: top coupling node + its neighborhood
+  const byCoupling = [...metrics.values()].sort((a, b) => b.coupling - a.coupling);
+  if (byCoupling.length > 0) {
+    const top = byCoupling[0];
+    const topNode = db.getSymbolById(top.id);
+    const hood = getNeighborhood(edges, top.id, 1);
+    if (topNode) {
+      suggestions.push({
+        title: `Highest coupling hub: ${topNode.name}`,
+        why: `coupling=${top.coupling} (fanIn=${top.fanIn} × fanOut=${top.fanOut}), impact=${top.impactRadius}. ${hood.size} nodes within 1 hop.`,
+        nodeIds: [...hood],
+        score: top.coupling,
+      });
+    }
+  }
+
+  // 2. Deepest call chain
+  const chains = findDeepestChains(edges, coverage.entryPointIds, 1);
+  if (chains.length > 0 && chains[0].length >= 3) {
+    const chain = chains[0];
+    const entryNode = db.getSymbolById(chain[0]);
+    const leafNode = db.getSymbolById(chain[chain.length - 1]);
+    suggestions.push({
+      title: `Deepest call chain: ${entryNode?.name ?? '?'} → ${leafNode?.name ?? '?'}`,
+      why: `${chain.length} steps deep from entry point to leaf. Longest execution path in the codebase.`,
+      nodeIds: chain,
+      score: chain.length * 10,
+    });
+  }
+
+  // 3. Highest-risk unannotated node + neighborhood
+  const unannotatedRisks = [...metrics.values()]
+    .filter(m => !annotatedIds.has(m.id) && (m.coupling >= 10 || m.impactRadius >= 20))
+    .sort((a, b) => b.coupling - a.coupling);
+  if (unannotatedRisks.length > 0) {
+    const risk = unannotatedRisks[0];
+    const riskNode = db.getSymbolById(risk.id);
+    const hood = getNeighborhood(edges, risk.id, 1);
+    if (riskNode) {
+      suggestions.push({
+        title: `Top unannotated risk: ${riskNode.name}`,
+        why: `coupling=${risk.coupling}, impact=${risk.impactRadius}, no annotations. ${unannotatedRisks.length} unannotated risky functions total.`,
+        nodeIds: [...hood],
+        score: risk.coupling + risk.impactRadius,
+      });
+    }
+  }
+
+  // 4. Widest fan-out node
+  const byFanOut = [...metrics.values()].sort((a, b) => b.fanOut - a.fanOut);
+  if (byFanOut.length > 0 && byFanOut[0].fanOut >= 3) {
+    const wide = byFanOut[0];
+    // Skip if already covered by coupling suggestion
+    if (!suggestions.some(s => s.nodeIds.includes(wide.id) && s.title.includes('coupling'))) {
+      const wideNode = db.getSymbolById(wide.id);
+      const hood = getNeighborhood(edges, wide.id, 1);
+      if (wideNode) {
+        suggestions.push({
+          title: `Widest fan-out: ${wideNode.name}`,
+          why: `Calls ${wide.fanOut} functions directly. Orchestrator or god-function candidate.`,
+          nodeIds: [...hood],
+          score: wide.fanOut * 5,
+        });
+      }
+    }
+  }
+
+  // 5. Dead code cluster (if any)
+  if (coverage.deadCodeIds.length > 0) {
+    const deadSlice = coverage.deadCodeIds.slice(0, 10);
+    const deadNames = deadSlice.map(id => db.getSymbolById(id)?.name ?? '?').slice(0, 5);
+    suggestions.push({
+      title: `Dead code cluster (${coverage.deadCodeIds.length} unreachable)`,
+      why: `${deadNames.join(', ')}${coverage.deadCodeIds.length > 5 ? '...' : ''}. Candidates for removal.`,
+      nodeIds: deadSlice,
+      score: coverage.deadCodeIds.length,
+    });
+  }
+
+  suggestions.sort((a, b) => b.score - a.score);
+  const top = suggestions.slice(0, 5);
+
+  let out = `=== Suggested Highlights (${top.length}) ===\n`;
+  for (let i = 0; i < top.length; i++) {
+    const s = top[i];
+    out += `\n${i + 1}. ${s.title}\n`;
+    out += `   Why: ${s.why}\n`;
+    out += `   Nodes: [${s.nodeIds.slice(0, 8).join(', ')}${s.nodeIds.length > 8 ? '...' : ''}] (${s.nodeIds.length} total)\n`;
+    out += `   → Use ive_highlight { node_ids: [${s.nodeIds.slice(0, 8).join(', ')}${s.nodeIds.length > 8 ? '...' : ''}] } to visualize\n`;
+  }
+
+  return text(out);
+}
+
+function handleHighlightCluster({ db, ws }: Ctx, args: Args): ToolResult {
+  let id = args.id as number | undefined;
+  const name = args.name as string | undefined;
+  const strategy = (args.strategy as string) ?? 'neighborhood';
+
+  if (!id && name) {
+    const resolved = resolveNameToId(db, name, ws);
+    if (isToolResult(resolved)) return resolved;
+    id = resolved.id;
+  }
+  if (id == null) return err('provide id or name');
+
+  const rootNode = db.getSymbolById(id);
+  if (!rootNode) return err(`symbol ${id} not found`);
+
+  const edges = db.getAllEdges();
+  const metrics = db.getStructuralMetrics();
+  let nodeIds: number[];
+  let description: string;
+
+  switch (strategy) {
+    case 'high_coupling': {
+      // Get neighborhood, then filter to only high-coupling nodes
+      const hood = getNeighborhood(edges, id, 2);
+      const threshold = 5;
+      nodeIds = [...hood].filter(nid => (metrics.get(nid)?.coupling ?? 0) >= threshold || nid === id);
+      description = `High-coupling cluster around ${rootNode.name}: ${nodeIds.length} nodes with coupling >= ${threshold} within 2 hops`;
+      break;
+    }
+    case 'deep_chain': {
+      // Find the longest forward chain from this node
+      const forward = new Map<number, number[]>();
+      for (const { sourceId, targetId } of edges) {
+        if (!forward.has(sourceId)) forward.set(sourceId, []);
+        forward.get(sourceId)!.push(targetId);
+      }
+      // DFS for longest path
+      let longestPath = [id];
+      const stack: Array<{ nodeId: number; path: number[] }> = [{ nodeId: id, path: [id] }];
+      while (stack.length > 0) {
+        const { nodeId, path: currentPath } = stack.pop()!;
+        const neighbors = forward.get(nodeId) ?? [];
+        let isLeaf = true;
+        for (const n of neighbors) {
+          if (currentPath.includes(n)) continue;
+          isLeaf = false;
+          stack.push({ nodeId: n, path: [...currentPath, n] });
+        }
+        if (isLeaf && currentPath.length > longestPath.length) {
+          longestPath = currentPath;
+        }
+      }
+      nodeIds = longestPath;
+      const leafNode = db.getSymbolById(nodeIds[nodeIds.length - 1]);
+      description = `Deepest chain from ${rootNode.name} → ${leafNode?.name ?? '?'}: ${nodeIds.length} steps`;
+      break;
+    }
+    case 'neighborhood':
+    default: {
+      const hood = getNeighborhood(edges, id, 2);
+      nodeIds = [...hood];
+      description = `2-hop neighborhood of ${rootNode.name}: ${nodeIds.length} nodes`;
+      break;
+    }
+  }
+
+  writeViewerCommand(ws, {
+    action: 'highlight',
+    payload: { nodeIds },
+    timestamp: Date.now(),
+  });
+
+  // List nodes with metrics
+  const nodes = nodeIds.map(nid => {
+    const n = db.getSymbolById(nid);
+    const c = metrics.get(nid)?.coupling ?? 0;
+    return n ? `  ${n.name} (id=${nid}, coupling=${c}) — ${rel(n.filePath, ws)}:${n.line}${nid === id ? ' [ROOT]' : ''}` : `  id=${nid}`;
+  });
+
+  return text(`${description}\n\n${nodes.join('\n')}\n\n(Highlighted in viewer. Panel must be open to see the effect.)`);
+}
+
 // ── Dispatch ─────────────────────────────────────────────────────────────────
 
 const HANDLERS: Record<string, (ctx: Ctx, args: Args) => ToolResult> = {
@@ -473,6 +927,12 @@ const HANDLERS: Record<string, (ctx: Ctx, args: Args) => ToolResult> = {
   ive_explain_complexity: handleExplainComplexity,
   ive_check_architecture: handleCheckArchitecture,
   ive_set_architecture: handleSetArchitecture,
+  ive_find_path: handleFindPath,
+  ive_highlight: handleHighlight,
+  ive_select_path: handleSelectPath,
+  ive_get_neighborhood: handleGetNeighborhood,
+  ive_suggest_highlights: handleSuggestHighlights,
+  ive_highlight_cluster: handleHighlightCluster,
 };
 
 export function handleToolCall(
