@@ -4,6 +4,10 @@
 
 <h1 align="center">IVE - Independent Vibing Environment</h1>
 
+<p align="center">
+  <a href="https://github.com/ThomasPluck/IVE/actions/workflows/build.yml"><img src="https://github.com/ThomasPluck/IVE/actions/workflows/build.yml/badge.svg" alt="Build VSIX" /></a>
+</p>
+
 <p align="center"><strong>A structural analysis engine for codebases.<br/>Gives humans a visual map and gives AI agents a reasoning API.</strong></p>
 
 IVE builds a call graph of your project with structural metrics — complexity, coupling, impact radius, reachability, module boundaries — and exposes it through both a VSCode sidebar and an MCP server that any Claude Code agent can query.
