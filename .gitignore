@@ -1,8 +1,18 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Node
 node_modules/
 dist/
-.ive/
-.claude/
-coverage/
+out/
 *.vsix
-webview/node_modules/
+coverage/
+.vite/
+
+# IVE runtime state
+.ive/
+
+# Editor / OS
 .DS_Store
+.claude/
