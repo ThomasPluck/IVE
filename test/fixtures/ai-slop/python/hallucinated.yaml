@@ -1,0 +1,10 @@
+# Expected daemon output for hallucinated.py.
+# Consumed by test/fixture_runner.sh on CI.
+expected_diagnostics:
+  - code: ive-hallucination/unknown-import
+    module: huggingface_utils
+    severity: critical
+expected_file_bucket: yellow_or_red
+expected_function_names:
+  - fetch
+  - save_cwd

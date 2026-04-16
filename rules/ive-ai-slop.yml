@@ -1,0 +1,57 @@
+# Workstream E — curated AI-code-specific Semgrep OSS ruleset.
+#
+# Scope is deliberately narrow (spec §9 risk 8). The goal is to catch
+# patterns that LLMs produce more often than humans, not to replace a full
+# SAST. Each rule must have a fixture in test/fixtures/ai-slop/ that
+# exercises it.
+#
+# This file is **versioned** — see CHANGELOG.md. Bumping the ruleset version
+# requires the daemon to invalidate cached Semgrep results.
+version: "0.1.0"
+
+rules:
+  - id: ive-ai-slop/eval-on-untyped-input
+    languages: [python]
+    severity: ERROR
+    message: "eval() on user-controlled input — LLMs frequently emit this for 'parse user JSON' flows. Use json.loads or ast.literal_eval."
+    pattern-either:
+      - pattern: eval($X)
+      - pattern: exec($X)
+    metadata:
+      category: security
+      owasp: "A03:2021 — Injection"
+
+  - id: ive-ai-slop/shell-true-from-format
+    languages: [python]
+    severity: ERROR
+    message: "subprocess call with shell=True and a format/interpolated string — classic command-injection shape."
+    pattern-either:
+      - pattern: subprocess.run(f"...{$X}...", shell=True, ...)
+      - pattern: subprocess.call(f"...{$X}...", shell=True, ...)
+      - pattern: subprocess.Popen(f"...{$X}...", shell=True, ...)
+
+  - id: ive-ai-slop/sql-string-concat
+    languages: [python, typescript, javascript]
+    severity: ERROR
+    message: "SQL string concatenation — use a parameterised query."
+    pattern-either:
+      - pattern: $DB.execute("..." + $X + "...")
+      - pattern: $DB.query("..." + $X + "...")
+      - pattern: $DB.execute(`...${$X}...`)
+      - pattern: $DB.query(`...${$X}...`)
+
+  - id: ive-ai-slop/hardcoded-secret
+    languages: [python, typescript, javascript]
+    severity: ERROR
+    message: "Literal credential — move to environment or secret store."
+    pattern-regex: "(?i)(api[_-]?key|secret|token|password|passwd)\\s*[:=]\\s*['\"][^'\"\\s]{16,}['\"]"
+
+  - id: ive-ai-slop/silent-except
+    languages: [python]
+    severity: WARNING
+    message: "Bare except: pass — LLM boilerplate that swallows every error. Name a specific exception or log."
+    pattern: |
+      try:
+        ...
+      except:
+        pass

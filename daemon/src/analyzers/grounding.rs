@@ -163,7 +163,10 @@ mod tests {
             bytes_read: 0,
             location: Location {
                 file: "a.py".into(),
-                range: Range { start: [0, 0], end: [0, 0] },
+                range: Range {
+                    start: [0, 0],
+                    end: [0, 0],
+                },
             },
         };
         let unit = FunctionUnit {
@@ -171,7 +174,10 @@ mod tests {
             name: "f".into(),
             location: Location {
                 file: "a.py".into(),
-                range: Range { start: [0, 0], end: [0, 0] },
+                range: Range {
+                    start: [0, 0],
+                    end: [0, 0],
+                },
             },
             cognitive_complexity: 0,
             loc: 5,

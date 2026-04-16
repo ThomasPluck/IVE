@@ -74,7 +74,11 @@ pub fn scip_like_id(file: &str, qualified_name: &str) -> SymbolId {
 }
 
 /// Extract function units from a file.
-pub fn extract_functions(lang: Language, file: &str, source: &[u8]) -> anyhow::Result<Vec<FunctionUnit>> {
+pub fn extract_functions(
+    lang: Language,
+    file: &str,
+    source: &[u8],
+) -> anyhow::Result<Vec<FunctionUnit>> {
     let mut parser = tree_sitter::Parser::new();
     parser
         .set_language(&lang.ts_language())
@@ -86,7 +90,9 @@ pub fn extract_functions(lang: Language, file: &str, source: &[u8]) -> anyhow::R
     let mut out = Vec::new();
     match lang {
         Language::Python => python::walk(tree.root_node(), source, file, &mut out),
-        Language::TypeScript | Language::Tsx => typescript::walk(tree.root_node(), source, file, &mut out),
+        Language::TypeScript | Language::Tsx => {
+            typescript::walk(tree.root_node(), source, file, &mut out)
+        }
     }
     Ok(out)
 }

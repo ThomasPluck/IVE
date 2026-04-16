@@ -125,7 +125,10 @@ mod tests {
     fn unsupported_extension_returns_none() {
         let tmp = tempdir();
         let file = tmp.join("a.txt");
-        std::fs::File::create(&file).unwrap().write_all(b"hi").unwrap();
+        std::fs::File::create(&file)
+            .unwrap()
+            .write_all(b"hi")
+            .unwrap();
         let scanned = scan_file(&tmp, &file).unwrap();
         assert!(scanned.is_none());
         std::fs::remove_dir_all(tmp).ok();

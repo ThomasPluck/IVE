@@ -75,7 +75,9 @@ fn read_requirements(root: &Path, idx: &mut LockfileIndex) {
 
 fn read_pyproject(root: &Path, idx: &mut LockfileIndex) {
     let p = root.join("pyproject.toml");
-    let Ok(text) = std::fs::read_to_string(&p) else { return };
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return;
+    };
     idx.python_present = true;
     let value: toml::Value = match toml::from_str(&text) {
         Ok(v) => v,
@@ -117,27 +119,35 @@ fn extract_pep508_name(s: &str) -> String {
 
 fn read_poetry_lock(root: &Path, idx: &mut LockfileIndex) {
     let p = root.join("poetry.lock");
-    let Ok(text) = std::fs::read_to_string(&p) else { return };
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return;
+    };
     idx.python_present = true;
     let re = Regex::new(r#"(?m)^name\s*=\s*"([^"]+)""#).unwrap();
     for cap in re.captures_iter(&text) {
-        idx.python.insert(cap[1].to_ascii_lowercase().replace('_', "-"));
+        idx.python
+            .insert(cap[1].to_ascii_lowercase().replace('_', "-"));
     }
 }
 
 fn read_uv_lock(root: &Path, idx: &mut LockfileIndex) {
     let p = root.join("uv.lock");
-    let Ok(text) = std::fs::read_to_string(&p) else { return };
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return;
+    };
     idx.python_present = true;
     let re = Regex::new(r#"(?m)^name\s*=\s*"([^"]+)""#).unwrap();
     for cap in re.captures_iter(&text) {
-        idx.python.insert(cap[1].to_ascii_lowercase().replace('_', "-"));
+        idx.python
+            .insert(cap[1].to_ascii_lowercase().replace('_', "-"));
     }
 }
 
 fn read_pipfile_lock(root: &Path, idx: &mut LockfileIndex) {
     let p = root.join("Pipfile.lock");
-    let Ok(text) = std::fs::read_to_string(&p) else { return };
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return;
+    };
     idx.python_present = true;
     let value: serde_json::Value = match serde_json::from_str(&text) {
         Ok(v) => v,
@@ -154,13 +164,20 @@ fn read_pipfile_lock(root: &Path, idx: &mut LockfileIndex) {
 
 fn read_package_json(root: &Path, idx: &mut LockfileIndex) {
     let p = root.join("package.json");
-    let Ok(text) = std::fs::read_to_string(&p) else { return };
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return;
+    };
     idx.js_present = true;
     let value: serde_json::Value = match serde_json::from_str(&text) {
         Ok(v) => v,
         Err(_) => return,
     };
-    for section in ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"] {
+    for section in [
+        "dependencies",
+        "devDependencies",
+        "peerDependencies",
+        "optionalDependencies",
+    ] {
         if let Some(obj) = value.get(section).and_then(|v| v.as_object()) {
             for k in obj.keys() {
                 idx.js.insert(k.clone());
@@ -171,7 +188,9 @@ fn read_package_json(root: &Path, idx: &mut LockfileIndex) {
 
 fn read_package_lock(root: &Path, idx: &mut LockfileIndex) {
     let p = root.join("package-lock.json");
-    let Ok(text) = std::fs::read_to_string(&p) else { return };
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return;
+    };
     idx.js_present = true;
     let value: serde_json::Value = match serde_json::from_str(&text) {
         Ok(v) => v,
@@ -194,7 +213,9 @@ fn read_package_lock(root: &Path, idx: &mut LockfileIndex) {
 
 fn read_pnpm_lock(root: &Path, idx: &mut LockfileIndex) {
     let p = root.join("pnpm-lock.yaml");
-    let Ok(text) = std::fs::read_to_string(&p) else { return };
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return;
+    };
     idx.js_present = true;
     // pnpm lock v6+ lists specifiers under `/@scope/name@version`. We extract the name.
     let re = Regex::new(r"(?m)^\s{2}/([^:\s]+?)@[^:]+:").unwrap();
@@ -223,7 +244,9 @@ fn read_pnpm_lock(root: &Path, idx: &mut LockfileIndex) {
 
 fn read_yarn_lock(root: &Path, idx: &mut LockfileIndex) {
     let p = root.join("yarn.lock");
-    let Ok(text) = std::fs::read_to_string(&p) else { return };
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return;
+    };
     idx.js_present = true;
     // Entries start with `"pkg@range":` or `pkg@range:` — extract the pkg name.
     let re = Regex::new(r#"(?m)^"?([A-Za-z0-9_@/\-.]+)@[^:]+:"?$"#).unwrap();
@@ -265,7 +288,7 @@ pub fn check_file(file: &ScannedFile, idx: &LockfileIndex) -> Vec<Diagnostic> {
             ),
             Language::TypeScript | Language::Tsx => (
                 idx.js_present
-                    && !NODE_BUILTINS.contains(&imp.module.as_str())
+                    && !is_node_builtin(&imp.module)
                     && !is_relative_js(&imp.module)
                     && !idx.js_has(&top_js_package(&imp.module)),
                 "js",
@@ -276,6 +299,17 @@ pub fn check_file(file: &ScannedFile, idx: &LockfileIndex) -> Vec<Diagnostic> {
         }
     }
     out
+}
+
+fn is_node_builtin(module: &str) -> bool {
+    if NODE_BUILTINS.contains(&module) {
+        return true;
+    }
+    // `node:fs/promises` → builtin if `fs` is a builtin. Also accept
+    // `fs/promises` without the explicit scheme.
+    let stripped = module.strip_prefix("node:").unwrap_or(module);
+    let head = stripped.split('/').next().unwrap_or(stripped);
+    NODE_BUILTINS.contains(&head) || NODE_BUILTINS.contains(&format!("node:{head}").as_str())
 }
 
 fn is_relative_python(module: &str) -> bool {
@@ -303,7 +337,10 @@ fn make_diagnostic(file: &str, imp: &ImportEntry, lang: &Language) -> Diagnostic
         Language::TypeScript | Language::Tsx => "package.json",
     };
     let msg = format!("no package '{}' in {lockfile_hint}", imp.module);
-    let id = format!("hallucination:{}:{}:{}", file, imp.range_start[0], imp.module);
+    let id = format!(
+        "hallucination:{}:{}:{}",
+        file, imp.range_start[0], imp.module
+    );
     Diagnostic {
         id,
         severity: Severity::Critical,
@@ -326,35 +363,214 @@ fn make_diagnostic(file: &str, imp: &ImportEntry, lang: &Language) -> Diagnostic
 /// Python 3.12 stdlib top-level modules. Short list — the live environment's
 /// `sys.stdlib_module_names` should eventually replace this.
 pub const PYTHON_STDLIB: &[&str] = &[
-    "__future__", "abc", "argparse", "array", "ast", "asyncio", "atexit", "base64", "bisect",
-    "builtins", "bz2", "calendar", "cmath", "collections", "colorsys", "concurrent", "contextlib",
-    "copy", "csv", "ctypes", "curses", "dataclasses", "datetime", "decimal", "difflib", "dis",
-    "email", "enum", "errno", "faulthandler", "filecmp", "fileinput", "fnmatch", "fractions",
-    "functools", "gc", "genericpath", "getopt", "getpass", "glob", "gzip", "hashlib", "heapq",
-    "hmac", "html", "http", "importlib", "inspect", "io", "ipaddress", "itertools", "json",
-    "keyword", "linecache", "locale", "logging", "lzma", "mailbox", "marshal", "math", "mimetypes",
-    "multiprocessing", "netrc", "numbers", "operator", "optparse", "os", "pathlib", "pdb",
-    "pickle", "pipes", "pkgutil", "platform", "plistlib", "pprint", "profile", "pstats", "queue",
-    "quopri", "random", "re", "readline", "reprlib", "resource", "runpy", "secrets", "select",
-    "selectors", "shelve", "shlex", "shutil", "signal", "site", "smtplib", "socket", "socketserver",
-    "sqlite3", "ssl", "stat", "statistics", "string", "struct", "subprocess", "symtable", "sys",
-    "sysconfig", "tarfile", "telnetlib", "tempfile", "textwrap", "threading", "time", "timeit",
-    "tkinter", "token", "tokenize", "tomllib", "trace", "traceback", "tracemalloc", "types",
-    "typing", "unicodedata", "unittest", "urllib", "uuid", "venv", "warnings", "wave", "weakref",
-    "webbrowser", "wsgiref", "xml", "xmlrpc", "zipfile", "zipimport", "zlib", "zoneinfo",
+    "__future__",
+    "abc",
+    "argparse",
+    "array",
+    "ast",
+    "asyncio",
+    "atexit",
+    "base64",
+    "bisect",
+    "builtins",
+    "bz2",
+    "calendar",
+    "cmath",
+    "collections",
+    "colorsys",
+    "concurrent",
+    "contextlib",
+    "copy",
+    "csv",
+    "ctypes",
+    "curses",
+    "dataclasses",
+    "datetime",
+    "decimal",
+    "difflib",
+    "dis",
+    "email",
+    "enum",
+    "errno",
+    "faulthandler",
+    "filecmp",
+    "fileinput",
+    "fnmatch",
+    "fractions",
+    "functools",
+    "gc",
+    "genericpath",
+    "getopt",
+    "getpass",
+    "glob",
+    "gzip",
+    "hashlib",
+    "heapq",
+    "hmac",
+    "html",
+    "http",
+    "importlib",
+    "inspect",
+    "io",
+    "ipaddress",
+    "itertools",
+    "json",
+    "keyword",
+    "linecache",
+    "locale",
+    "logging",
+    "lzma",
+    "mailbox",
+    "marshal",
+    "math",
+    "mimetypes",
+    "multiprocessing",
+    "netrc",
+    "numbers",
+    "operator",
+    "optparse",
+    "os",
+    "pathlib",
+    "pdb",
+    "pickle",
+    "pipes",
+    "pkgutil",
+    "platform",
+    "plistlib",
+    "pprint",
+    "profile",
+    "pstats",
+    "queue",
+    "quopri",
+    "random",
+    "re",
+    "readline",
+    "reprlib",
+    "resource",
+    "runpy",
+    "secrets",
+    "select",
+    "selectors",
+    "shelve",
+    "shlex",
+    "shutil",
+    "signal",
+    "site",
+    "smtplib",
+    "socket",
+    "socketserver",
+    "sqlite3",
+    "ssl",
+    "stat",
+    "statistics",
+    "string",
+    "struct",
+    "subprocess",
+    "symtable",
+    "sys",
+    "sysconfig",
+    "tarfile",
+    "telnetlib",
+    "tempfile",
+    "textwrap",
+    "threading",
+    "time",
+    "timeit",
+    "tkinter",
+    "token",
+    "tokenize",
+    "tomllib",
+    "trace",
+    "traceback",
+    "tracemalloc",
+    "types",
+    "typing",
+    "unicodedata",
+    "unittest",
+    "urllib",
+    "uuid",
+    "venv",
+    "warnings",
+    "wave",
+    "weakref",
+    "webbrowser",
+    "wsgiref",
+    "xml",
+    "xmlrpc",
+    "zipfile",
+    "zipimport",
+    "zlib",
+    "zoneinfo",
 ];
 
 /// Node.js 22 built-in modules.
 pub const NODE_BUILTINS: &[&str] = &[
-    "assert", "async_hooks", "buffer", "child_process", "cluster", "console", "constants", "crypto",
-    "dgram", "diagnostics_channel", "dns", "domain", "events", "fs", "http", "http2", "https",
-    "inspector", "module", "net", "os", "path", "perf_hooks", "process", "punycode", "querystring",
-    "readline", "repl", "stream", "string_decoder", "timers", "tls", "trace_events", "tty", "url",
-    "util", "v8", "vm", "wasi", "worker_threads", "zlib",
-    "node:assert", "node:async_hooks", "node:buffer", "node:child_process", "node:cluster",
-    "node:console", "node:crypto", "node:dgram", "node:dns", "node:events", "node:fs",
-    "node:http", "node:https", "node:net", "node:os", "node:path", "node:process", "node:stream",
-    "node:timers", "node:tls", "node:tty", "node:url", "node:util", "node:worker_threads", "node:zlib",
+    "assert",
+    "async_hooks",
+    "buffer",
+    "child_process",
+    "cluster",
+    "console",
+    "constants",
+    "crypto",
+    "dgram",
+    "diagnostics_channel",
+    "dns",
+    "domain",
+    "events",
+    "fs",
+    "http",
+    "http2",
+    "https",
+    "inspector",
+    "module",
+    "net",
+    "os",
+    "path",
+    "perf_hooks",
+    "process",
+    "punycode",
+    "querystring",
+    "readline",
+    "repl",
+    "stream",
+    "string_decoder",
+    "timers",
+    "tls",
+    "trace_events",
+    "tty",
+    "url",
+    "util",
+    "v8",
+    "vm",
+    "wasi",
+    "worker_threads",
+    "zlib",
+    "node:assert",
+    "node:async_hooks",
+    "node:buffer",
+    "node:child_process",
+    "node:cluster",
+    "node:console",
+    "node:crypto",
+    "node:dgram",
+    "node:dns",
+    "node:events",
+    "node:fs",
+    "node:http",
+    "node:https",
+    "node:net",
+    "node:os",
+    "node:path",
+    "node:process",
+    "node:stream",
+    "node:timers",
+    "node:tls",
+    "node:tty",
+    "node:url",
+    "node:util",
+    "node:worker_threads",
+    "node:zlib",
 ];
 
 #[cfg(test)]
@@ -411,7 +627,10 @@ mod tests {
             bytes_read: 0,
             location: Location {
                 file: "a.py".into(),
-                range: Range { start: [0, 0], end: [2, 0] },
+                range: Range {
+                    start: [0, 0],
+                    end: [2, 0],
+                },
             },
         };
         let diags = check_file(&sf, &idx);
@@ -440,7 +659,10 @@ mod tests {
             bytes_read: 0,
             location: Location {
                 file: "a.py".into(),
-                range: Range { start: [0, 0], end: [0, 0] },
+                range: Range {
+                    start: [0, 0],
+                    end: [0, 0],
+                },
             },
         };
         assert!(check_file(&sf, &idx).is_empty());
@@ -451,5 +673,15 @@ mod tests {
     fn scoped_npm_package_normalises() {
         assert_eq!(top_js_package("@scope/pkg/sub"), "@scope/pkg");
         assert_eq!(top_js_package("lodash/fp"), "lodash");
+    }
+
+    #[test]
+    fn node_subpath_imports_are_builtins() {
+        assert!(is_node_builtin("fs"));
+        assert!(is_node_builtin("fs/promises"));
+        assert!(is_node_builtin("node:fs"));
+        assert!(is_node_builtin("node:fs/promises"));
+        assert!(is_node_builtin("path"));
+        assert!(!is_node_builtin("imaginary-package"));
     }
 }

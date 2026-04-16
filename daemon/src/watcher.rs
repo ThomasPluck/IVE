@@ -34,7 +34,9 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
     for path in &paths {
         done += 1;
         if let Ok(Some(sf)) = scanner::scan_file(&state.root, path) {
-            let (changed, _sha) = state.blobs.update_if_changed(path.to_path_buf(), path_bytes(path).as_ref());
+            let (changed, _sha) = state
+                .blobs
+                .update_if_changed(path.to_path_buf(), path_bytes(path).as_ref());
             if !changed {
                 cache_hits += 1;
             }
@@ -62,26 +64,29 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
         let mut fn_scores = Vec::with_capacity(sf.functions.len());
         for func in &sf.functions {
             let fi = fan_in.get(&func.symbol_id).copied().unwrap_or(0);
-            let score = health::score_function(
-                func,
-                &state.config.health,
-                fi,
-                0,
-                hallucinated,
-                0,
-                false,
-            );
+            let score =
+                health::score_function(func, &state.config.health, fi, 0, hallucinated, 0, false);
             workspace
                 .function_scores
                 .insert(func.symbol_id.clone(), score.clone());
             fn_scores.push(score);
         }
 
-        let file_score = score_file(sf, &state.config.health, &fn_scores, diagnostics.len() as u32, hallucinated);
-        workspace.file_scores.insert(sf.relative_path.clone(), file_score.clone());
+        let file_score = score_file(
+            sf,
+            &state.config.health,
+            &fn_scores,
+            diagnostics.len() as u32,
+            hallucinated,
+        );
+        workspace
+            .file_scores
+            .insert(sf.relative_path.clone(), file_score.clone());
         file_scores.push(file_score);
 
-        workspace.diagnostics.insert(sf.relative_path.clone(), diagnostics.clone());
+        workspace
+            .diagnostics
+            .insert(sf.relative_path.clone(), diagnostics.clone());
         let _ = tx.send(DaemonEvent::DiagnosticsUpdated {
             file: sf.relative_path.clone(),
             diagnostics,
@@ -99,7 +104,9 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
         files_total: total,
     });
 
-    let _ = tx.send(DaemonEvent::HealthUpdated { scores: file_scores });
+    let _ = tx.send(DaemonEvent::HealthUpdated {
+        scores: file_scores,
+    });
 
     info!(
         elapsed_ms = started.elapsed().as_millis() as u64,
@@ -115,7 +122,11 @@ fn path_bytes(p: &Path) -> Vec<u8> {
 }
 
 #[allow(dead_code)]
-pub async fn rescan_one(state: &SharedState, tx: &EventTx, rel: &str) -> anyhow::Result<Vec<Diagnostic>> {
+pub async fn rescan_one(
+    state: &SharedState,
+    tx: &EventTx,
+    rel: &str,
+) -> anyhow::Result<Vec<Diagnostic>> {
     let path = state.root.join(rel);
     let Some(sf) = scanner::scan_file(&state.root, &path)? else {
         return Ok(vec![]);
@@ -128,7 +139,8 @@ pub async fn rescan_one(state: &SharedState, tx: &EventTx, rel: &str) -> anyhow:
 
     {
         let mut w = state.workspace.write().await;
-        w.diagnostics.insert(sf.relative_path.clone(), diagnostics.clone());
+        w.diagnostics
+            .insert(sf.relative_path.clone(), diagnostics.clone());
         w.files.insert(sf.relative_path.clone(), sf.clone());
     }
     let _ = tx.send(DaemonEvent::DiagnosticsUpdated {

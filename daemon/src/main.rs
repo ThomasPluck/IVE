@@ -66,9 +66,8 @@ async fn main() -> anyhow::Result<()> {
         Some(Command::Scan) => {
             let (tx, mut rx) = events::channel();
             let state_clone = std::sync::Arc::clone(&state);
-            let handle = tokio::spawn(async move {
-                watcher::rescan_workspace(&state_clone, &tx).await
-            });
+            let handle =
+                tokio::spawn(async move { watcher::rescan_workspace(&state_clone, &tx).await });
             // Drain events silently for the CLI surface.
             while rx.recv().await.is_some() {}
             handle.await??;

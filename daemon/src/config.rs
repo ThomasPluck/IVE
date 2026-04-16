@@ -16,10 +16,18 @@ pub struct HealthWeights {
     pub ai_signal: f32,
 }
 
-fn default_novelty() -> f32 { 0.2 }
-fn default_cognitive_complexity() -> f32 { 0.3 }
-fn default_coupling() -> f32 { 0.2 }
-fn default_ai_signal() -> f32 { 0.3 }
+fn default_novelty() -> f32 {
+    0.2
+}
+fn default_cognitive_complexity() -> f32 {
+    0.3
+}
+fn default_coupling() -> f32 {
+    0.2
+}
+fn default_ai_signal() -> f32 {
+    0.3
+}
 
 impl Default for HealthWeights {
     fn default() -> Self {

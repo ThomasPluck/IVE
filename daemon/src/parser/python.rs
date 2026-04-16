@@ -101,21 +101,31 @@ fn collect_callees(body: Node, source: &[u8]) -> Vec<String> {
 /// Extract every top-level `import` / `from X import Y` module.
 pub fn extract_imports(source: &[u8]) -> Vec<ImportStatement> {
     let mut parser = tree_sitter::Parser::new();
-    parser.set_language(&tree_sitter_python::LANGUAGE.into()).expect("python");
-    let Some(tree) = parser.parse(source, None) else { return Vec::new() };
+    parser
+        .set_language(&tree_sitter_python::LANGUAGE.into())
+        .expect("python");
+    let Some(tree) = parser.parse(source, None) else {
+        return Vec::new();
+    };
     let mut out = Vec::new();
     let root = tree.root_node();
     let mut cursor = root.walk();
     for child in root.children(&mut cursor) {
         let s = child.start_position();
         let e = child.end_position();
-        let range = ([s.row as u32, s.column as u32], [e.row as u32, e.column as u32]);
+        let range = (
+            [s.row as u32, s.column as u32],
+            [e.row as u32, e.column as u32],
+        );
         match child.kind() {
             "import_statement" => {
                 if let Some(name_node) = child.child_by_field_name("name") {
                     if let Ok(text) = std::str::from_utf8(&source[name_node.byte_range()]) {
                         let mod_ = text.split('.').next().unwrap_or(text).to_string();
-                        out.push(ImportStatement { module: mod_, range });
+                        out.push(ImportStatement {
+                            module: mod_,
+                            range,
+                        });
                     }
                 }
             }
@@ -124,7 +134,10 @@ pub fn extract_imports(source: &[u8]) -> Vec<ImportStatement> {
                     if let Ok(text) = std::str::from_utf8(&source[mod_node.byte_range()]) {
                         if !text.starts_with('.') {
                             let mod_ = text.split('.').next().unwrap_or(text).to_string();
-                            out.push(ImportStatement { module: mod_, range });
+                            out.push(ImportStatement {
+                                module: mod_,
+                                range,
+                            });
                         }
                     }
                 }

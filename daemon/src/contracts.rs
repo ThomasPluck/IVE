@@ -291,7 +291,10 @@ pub enum DaemonEvent {
     #[serde(rename_all = "camelCase")]
     HealthUpdated { scores: Vec<HealthScore> },
     #[serde(rename_all = "camelCase")]
-    DiagnosticsUpdated { file: String, diagnostics: Vec<Diagnostic> },
+    DiagnosticsUpdated {
+        file: String,
+        diagnostics: Vec<Diagnostic>,
+    },
     #[serde(rename_all = "camelCase")]
     CapabilityDegraded { capability: String, reason: String },
     #[serde(rename_all = "camelCase")]
@@ -333,7 +336,10 @@ mod tests {
             message: "no package 'foo'".into(),
             location: Location {
                 file: "a/b.py".into(),
-                range: Range { start: [2, 0], end: [2, 10] },
+                range: Range {
+                    start: [2, 0],
+                    end: [2, 10],
+                },
             },
             symbol: None,
             related: vec![],
@@ -357,7 +363,10 @@ mod tests {
 
     #[test]
     fn daemon_event_is_tagged_on_type() {
-        let e = DaemonEvent::IndexProgress { files_done: 3, files_total: 10 };
+        let e = DaemonEvent::IndexProgress {
+            files_done: 3,
+            files_total: 10,
+        };
         let v = serde_json::to_value(&e).unwrap();
         assert_eq!(v["type"], "indexProgress");
         assert_eq!(v["filesDone"], 3);

@@ -240,7 +240,9 @@ pub async fn dispatch_method(
             let w = state.workspace.read().await;
             for file in w.files.values() {
                 if let Some(unit) = file.functions.iter().find(|f| f.symbol_id == params.symbol) {
-                    return Ok(serde_json::to_value(grounding::offline_summary(file, unit)).unwrap());
+                    return Ok(
+                        serde_json::to_value(grounding::offline_summary(file, unit)).unwrap()
+                    );
                 }
             }
             Err(RpcError::invalid_params(format!(
@@ -294,15 +296,18 @@ async fn find_symbol_at(state: &SharedState, loc: &Location) -> Option<Location>
     let mut best: Option<&crate::parser::FunctionUnit> = None;
     for f in &file.functions {
         let r = &f.location.range;
-        let inside = (r.start[0], r.start[1]) <= (line, col)
-            && (r.end[0], r.end[1]) >= (line, col);
+        let inside = (r.start[0], r.start[1]) <= (line, col) && (r.end[0], r.end[1]) >= (line, col);
         if inside {
             best = match best {
                 None => Some(f),
                 Some(prev) => {
                     let prev_span = span_size(prev);
                     let cur_span = span_size(f);
-                    if cur_span <= prev_span { Some(f) } else { Some(prev) }
+                    if cur_span <= prev_span {
+                        Some(f)
+                    } else {
+                        Some(prev)
+                    }
                 }
             };
         }
@@ -322,11 +327,18 @@ async fn find_references(state: &SharedState, loc: &Location) -> Vec<Location> {
         return vec![];
     };
     let w = state.workspace.read().await;
-    let Some(file) = w.files.get(&def.file) else { return vec![] };
+    let Some(file) = w.files.get(&def.file) else {
+        return vec![];
+    };
     let Some(target) = file.functions.iter().find(|f| f.location == def) else {
         return vec![];
     };
-    let leaf = target.name.rsplit('.').next().unwrap_or(&target.name).to_string();
+    let leaf = target
+        .name
+        .rsplit('.')
+        .next()
+        .unwrap_or(&target.name)
+        .to_string();
     let mut out = Vec::new();
     for file in w.files.values() {
         for func in &file.functions {
@@ -344,7 +356,8 @@ mod tests {
 
     #[tokio::test]
     async fn ping_pongs() {
-        let state = crate::state::State::new(std::env::temp_dir(), crate::config::Config::default());
+        let state =
+            crate::state::State::new(std::env::temp_dir(), crate::config::Config::default());
         let (tx, _rx) = crate::events::channel();
         let req = RpcRequest {
             jsonrpc: "2.0".into(),
@@ -358,7 +371,8 @@ mod tests {
 
     #[tokio::test]
     async fn slice_compute_returns_capability_error() {
-        let state = crate::state::State::new(std::env::temp_dir(), crate::config::Config::default());
+        let state =
+            crate::state::State::new(std::env::temp_dir(), crate::config::Config::default());
         let (tx, _rx) = crate::events::channel();
         let req = RpcRequest {
             jsonrpc: "2.0".into(),
@@ -380,7 +394,8 @@ mod tests {
 
     #[tokio::test]
     async fn unknown_method_is_a_method_not_found() {
-        let state = crate::state::State::new(std::env::temp_dir(), crate::config::Config::default());
+        let state =
+            crate::state::State::new(std::env::temp_dir(), crate::config::Config::default());
         let (tx, _rx) = crate::events::channel();
         let req = RpcRequest {
             jsonrpc: "2.0".into(),

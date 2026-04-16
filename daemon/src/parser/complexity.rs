@@ -122,7 +122,10 @@ fn visit(
         // For Python it's always boolean_operator; for TS we need to check the
         // operator text and only score `&&`/`||`.
         let op = operator_text(node, source);
-        let is_short_circuit = matches!(op.as_deref(), Some("&&") | Some("||") | Some("and") | Some("or"));
+        let is_short_circuit = matches!(
+            op.as_deref(),
+            Some("&&") | Some("||") | Some("and") | Some("or")
+        );
         if is_short_circuit {
             let changed = parent_bool_op != op.as_deref();
             if changed {
@@ -143,7 +146,9 @@ fn visit(
 fn operator_text(node: Node, source: &[u8]) -> Option<String> {
     // Try an "operator" field first, then scan children for a likely operator.
     if let Some(op) = node.child_by_field_name("operator") {
-        return std::str::from_utf8(&source[op.byte_range()]).ok().map(str::to_string);
+        return std::str::from_utf8(&source[op.byte_range()])
+            .ok()
+            .map(str::to_string);
     }
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
@@ -162,7 +167,8 @@ mod tests {
 
     fn py_score(src: &str) -> u32 {
         let mut p = Parser::new();
-        p.set_language(&tree_sitter_python::LANGUAGE.into()).unwrap();
+        p.set_language(&tree_sitter_python::LANGUAGE.into())
+            .unwrap();
         let t = p.parse(src, None).unwrap();
         // Find the first function body node in the root.
         let mut cursor = t.root_node().walk();

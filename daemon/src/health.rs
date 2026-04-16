@@ -55,9 +55,14 @@ pub fn score_function(
     let diag_n = clamp01(diagnostic_count as f32 / 5.0);
     let hall_n = if hallucinated_imports > 0 { 1.0 } else { 0.0 };
     let untested_blast = 0.0; // v1: unimplemented without blast-radius data
-    let churn_no_tests = if recent_churn_loc > 0 && has_no_tests { 1.0 } else { 0.0 };
+    let churn_no_tests = if recent_churn_loc > 0 && has_no_tests {
+        1.0
+    } else {
+        0.0
+    };
 
-    let ai_value = clamp01(0.4 * diag_n + 0.3 * hall_n + 0.2 * untested_blast + 0.1 * churn_no_tests);
+    let ai_value =
+        clamp01(0.4 * diag_n + 0.3 * hall_n + 0.2 * untested_blast + 0.1 * churn_no_tests);
     let ai_signal = AiSignalComponent {
         value: ai_value,
         diagnostic_count,
@@ -110,7 +115,11 @@ pub fn score_file(
             },
         );
 
-    let mean_composite = if cc_weight_sum > 0.0 { cc_sum / cc_weight_sum } else { 0.0 };
+    let mean_composite = if cc_weight_sum > 0.0 {
+        cc_sum / cc_weight_sum
+    } else {
+        0.0
+    };
 
     // File-level AI signal weights hallucinated imports strongly — a single
     // unknown import is a near-maximal slop indicator by spec (§5/F).
@@ -136,7 +145,9 @@ pub fn score_file(
     let composite = blended.max(severity_floor);
 
     HealthScore {
-        target: HealthTarget::File { file: file.relative_path.clone() },
+        target: HealthTarget::File {
+            file: file.relative_path.clone(),
+        },
         location: Location {
             file: file.relative_path.clone(),
             range: Range {
@@ -170,8 +181,16 @@ pub fn build_fan_in(files: &HashMap<String, ScannedFile>) -> HashMap<String, u32
     let mut name_index: HashMap<String, Vec<String>> = HashMap::new();
     for file in files.values() {
         for func in &file.functions {
-            let leaf = func.name.rsplit('.').next().unwrap_or(&func.name).to_string();
-            name_index.entry(leaf).or_default().push(func.symbol_id.clone());
+            let leaf = func
+                .name
+                .rsplit('.')
+                .next()
+                .unwrap_or(&func.name)
+                .to_string();
+            name_index
+                .entry(leaf)
+                .or_default()
+                .push(func.symbol_id.clone());
         }
     }
 
@@ -204,7 +223,10 @@ mod tests {
             name: "f".into(),
             location: Location {
                 file: "m.py".into(),
-                range: Range { start: [0, 0], end: [0, 0] },
+                range: Range {
+                    start: [0, 0],
+                    end: [0, 0],
+                },
             },
             cognitive_complexity: cc,
             loc: 10,
@@ -252,7 +274,10 @@ mod tests {
             bytes_read: 0,
             location: Location {
                 file: "a.py".into(),
-                range: Range { start: [0, 0], end: [10, 0] },
+                range: Range {
+                    start: [0, 0],
+                    end: [10, 0],
+                },
             },
         };
         let fn_scores = vec![score_function(

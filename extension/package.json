@@ -1,0 +1,97 @@
+{
+  "name": "ive",
+  "displayName": "IVE — Independent Vibing Environment",
+  "description": "Make AI-generated codebases legible. Treemap, diagnostics, grounded summaries, data-flow slices.",
+  "version": "0.1.0",
+  "publisher": "ive",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ThomasPluck/IVE"
+  },
+  "icon": "resources/ive_logo.png",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Visualization",
+    "Programming Languages",
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ive-explorer",
+          "title": "IVE",
+          "icon": "resources/ive-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "ive-explorer": [
+        {
+          "type": "webview",
+          "id": "ive.panel",
+          "name": "IVE",
+          "visibility": "visible"
+        }
+      ]
+    },
+    "commands": [
+      { "command": "ive.show",           "title": "IVE: Show" },
+      { "command": "ive.sliceBackward",  "title": "IVE: Slice Backward" },
+      { "command": "ive.sliceForward",   "title": "IVE: Slice Forward" },
+      { "command": "ive.summarize",      "title": "IVE: Summarize Symbol" },
+      { "command": "ive.jumpToWorst",    "title": "IVE: Jump to Worst" },
+      { "command": "ive.rescan",         "title": "IVE: Rescan Workspace" },
+      { "command": "ive.showLogs",       "title": "IVE: Show Logs" },
+      { "command": "ive.configure",      "title": "IVE: Configure" }
+    ],
+    "keybindings": [
+      { "command": "ive.show",          "key": "ctrl+shift+i", "mac": "cmd+shift+i" },
+      { "command": "ive.sliceBackward", "key": "ctrl+shift+[", "mac": "cmd+shift+[", "when": "editorTextFocus" },
+      { "command": "ive.sliceForward",  "key": "ctrl+shift+]", "mac": "cmd+shift+]", "when": "editorTextFocus" },
+      { "command": "ive.summarize",     "key": "ctrl+shift+k", "mac": "cmd+shift+k", "when": "editorTextFocus" },
+      { "command": "ive.jumpToWorst",   "key": "ctrl+shift+w", "mac": "cmd+shift+w" }
+    ],
+    "configuration": {
+      "title": "IVE",
+      "properties": {
+        "ive.daemon.path": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the ive-daemon binary. Empty = auto-detect."
+        },
+        "ive.logLevel": {
+          "type": "string",
+          "default": "info",
+          "enum": ["error", "warn", "info", "debug", "trace"],
+          "description": "RUST_LOG level for the daemon subprocess."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "package": "npm run build && vsce package --no-yarn --out ../ive.vsix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/vscode": "^1.100.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.9"
+  }
+}

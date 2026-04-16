@@ -179,7 +179,9 @@ pub fn extract_imports(source: &[u8], is_tsx: bool) -> Vec<ImportStatement> {
         tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()
     };
     parser.set_language(&lang).expect("typescript");
-    let Some(tree) = parser.parse(source, None) else { return Vec::new() };
+    let Some(tree) = parser.parse(source, None) else {
+        return Vec::new();
+    };
     let mut out = Vec::new();
     let mut stack = vec![tree.root_node()];
     while let Some(n) = stack.pop() {
@@ -190,7 +192,10 @@ pub fn extract_imports(source: &[u8], is_tsx: bool) -> Vec<ImportStatement> {
                     let e = n.end_position();
                     out.push(ImportStatement {
                         module: spec,
-                        range: ([s.row as u32, s.column as u32], [e.row as u32, e.column as u32]),
+                        range: (
+                            [s.row as u32, s.column as u32],
+                            [e.row as u32, e.column as u32],
+                        ),
                     });
                 }
             }
@@ -205,7 +210,10 @@ pub fn extract_imports(source: &[u8], is_tsx: bool) -> Vec<ImportStatement> {
                                 let e = n.end_position();
                                 out.push(ImportStatement {
                                     module: spec,
-                                    range: ([s.row as u32, s.column as u32], [e.row as u32, e.column as u32]),
+                                    range: (
+                                        [s.row as u32, s.column as u32],
+                                        [e.row as u32, e.column as u32],
+                                    ),
                                 });
                             }
                         }
