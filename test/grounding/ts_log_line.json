@@ -1,0 +1,13 @@
+{
+  "id": "ts/log_line",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls pino" },
+    { "id": "f2", "kind": "signature", "content": "function logLine (6 LOC)" }
+  ],
+  "summary": "Emits a structured log line via pino at info level. Rotates logs on disk every 24 hours.",
+  "labels": [
+    { "sentence": "Emits a structured log line via pino at info level.", "entailed": true },
+    { "sentence": "Rotates logs on disk every 24 hours.", "entailed": false }
+  ]
+}

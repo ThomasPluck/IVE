@@ -167,11 +167,23 @@ fn evaluate_claim(sentence: &str, facts: &[Fact]) -> Claim {
 }
 
 fn split_sentences(text: &str) -> Vec<String> {
+    // Break on a sentence terminator (`.`, `!`, `?`) only when followed by
+    // whitespace or end-of-input — so `json.loads`, `v1.1`, `foo.bar()`
+    // stay intact inside a single claim.
     let mut out = Vec::new();
     let mut cur = String::new();
-    for ch in text.chars() {
-        cur.push(ch);
-        if matches!(ch, '.' | '!' | '?') {
+    let chars: Vec<char> = text.chars().collect();
+    for (i, ch) in chars.iter().enumerate() {
+        cur.push(*ch);
+        let is_terminator = matches!(ch, '.' | '!' | '?');
+        if !is_terminator {
+            continue;
+        }
+        let next_is_boundary = match chars.get(i + 1) {
+            None => true,
+            Some(c) => c.is_whitespace(),
+        };
+        if next_is_boundary {
             let trimmed = cur.trim().to_string();
             if !trimmed.is_empty() {
                 out.push(trimmed);

@@ -1,0 +1,14 @@
+{
+  "id": "py/validate_payload",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function validate_payload (10 LOC)" },
+    { "id": "f2", "kind": "call", "content": "calls json.loads" },
+    { "id": "f3", "kind": "raises", "content": "raises ValueError" }
+  ],
+  "summary": "Parses JSON input via json.loads and raises ValueError on malformed input. Writes the parsed value to the audit log.",
+  "labels": [
+    { "sentence": "Parses JSON input via json.loads and raises ValueError on malformed input.", "entailed": true },
+    { "sentence": "Writes the parsed value to the audit log.", "entailed": false }
+  ]
+}

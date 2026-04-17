@@ -1,0 +1,14 @@
+{
+  "id": "py/requests_get",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls requests.get" },
+    { "id": "f2", "kind": "return_type", "content": "returns str" },
+    { "id": "f3", "kind": "import", "content": "imports requests" }
+  ],
+  "summary": "Fetches the URL via requests.get and returns the response body as a string. Persists the result to Redis.",
+  "labels": [
+    { "sentence": "Fetches the URL via requests.get and returns the response body as a string.", "entailed": true },
+    { "sentence": "Persists the result to Redis.", "entailed": false }
+  ]
+}
