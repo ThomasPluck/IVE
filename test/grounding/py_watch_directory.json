@@ -1,0 +1,13 @@
+{
+  "id": "py/watch_directory",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls watchdog Observer" },
+    { "id": "f2", "kind": "call", "content": "calls observer start" }
+  ],
+  "summary": "Registers a watchdog Observer and calls observer start to watch the directory. Replicates every event to a Kafka topic for downstream subscribers.",
+  "labels": [
+    { "sentence": "Registers a watchdog Observer and calls observer start to watch the directory.", "entailed": true },
+    { "sentence": "Replicates every event to a Kafka topic for downstream subscribers.", "entailed": false }
+  ]
+}

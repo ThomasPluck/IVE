@@ -1,0 +1,12 @@
+{
+  "id": "py/parse_int",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls int" },
+    { "id": "f2", "kind": "raises", "content": "raises ValueError" }
+  ],
+  "summary": "Parses the string as an integer via int and raises ValueError when the input is not numeric.",
+  "labels": [
+    { "sentence": "Parses the string as an integer via int and raises ValueError when the input is not numeric.", "entailed": true }
+  ]
+}

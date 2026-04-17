@@ -1,0 +1,13 @@
+{
+  "id": "ts/readdir",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls fs promises readdir" },
+    { "id": "f2", "kind": "return_type", "content": "returns Promise" }
+  ],
+  "summary": "Returns the directory listing via fs promises readdir as a Promise of string array. Additionally rate-limits callers via a token bucket.",
+  "labels": [
+    { "sentence": "Returns the directory listing via fs promises readdir as a Promise of string array.", "entailed": true },
+    { "sentence": "Additionally rate-limits callers via a token bucket.", "entailed": false }
+  ]
+}
