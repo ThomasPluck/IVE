@@ -1,0 +1,12 @@
+{
+  "id": "py/is_palindrome",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function is_palindrome (3 LOC)" },
+    { "id": "f2", "kind": "return_type", "content": "returns bool" }
+  ],
+  "summary": "Checks whether the normalised string equals its reverse and returns the bool.",
+  "labels": [
+    { "sentence": "Checks whether the normalised string equals its reverse and returns the bool.", "entailed": true }
+  ]
+}

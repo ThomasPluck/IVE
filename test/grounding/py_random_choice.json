@@ -1,0 +1,12 @@
+{
+  "id": "py/random_choice",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls random choice" },
+    { "id": "f2", "kind": "return_type", "content": "returns T" }
+  ],
+  "summary": "Picks a T uniformly at random from the sequence via random choice and returns it.",
+  "labels": [
+    { "sentence": "Picks a T uniformly at random from the sequence via random choice and returns it.", "entailed": true }
+  ]
+}

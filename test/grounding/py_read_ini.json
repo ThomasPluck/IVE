@@ -1,0 +1,13 @@
+{
+  "id": "py/read_ini",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls configparser ConfigParser" },
+    { "id": "f2", "kind": "call", "content": "calls parser read" }
+  ],
+  "summary": "Loads the ini file with configparser ConfigParser and parser read and returns the parser. Additionally decrypts the file using a KMS key.",
+  "labels": [
+    { "sentence": "Loads the ini file with configparser ConfigParser and parser read and returns the parser.", "entailed": true },
+    { "sentence": "Additionally decrypts the file using a KMS key.", "entailed": false }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "py/heap_min",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls heapq heappush" },
+    { "id": "f2", "kind": "call", "content": "calls heapq heappop" }
+  ],
+  "summary": "Maintains a min-heap via heapq heappush and heapq heappop and yields elements in ascending order. Visually renders the heap to an ASCII tree on every pop.",
+  "labels": [
+    { "sentence": "Maintains a min-heap via heapq heappush and heapq heappop and yields elements in ascending order.", "entailed": true },
+    { "sentence": "Visually renders the heap to an ASCII tree on every pop.", "entailed": false }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "py/bcrypt_verify",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls bcrypt checkpw" },
+    { "id": "f2", "kind": "return_type", "content": "returns bool" }
+  ],
+  "summary": "Verifies the candidate password against the stored hash using bcrypt checkpw and returns a bool. Also writes a failure audit entry on mismatches.",
+  "labels": [
+    { "sentence": "Verifies the candidate password against the stored hash using bcrypt checkpw and returns a bool.", "entailed": true },
+    { "sentence": "Also writes a failure audit entry on mismatches.", "entailed": false }
+  ]
+}

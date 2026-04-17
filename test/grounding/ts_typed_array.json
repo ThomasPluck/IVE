@@ -1,0 +1,13 @@
+{
+  "id": "ts/typed_array",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls Float32Array" },
+    { "id": "f2", "kind": "return_type", "content": "returns Float32Array" }
+  ],
+  "summary": "Allocates a Float32Array of the requested length and returns it. Also initialises the buffer in WebAssembly linear memory.",
+  "labels": [
+    { "sentence": "Allocates a Float32Array of the requested length and returns it.", "entailed": true },
+    { "sentence": "Also initialises the buffer in WebAssembly linear memory.", "entailed": false }
+  ]
+}

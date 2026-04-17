@@ -1,0 +1,13 @@
+{
+  "id": "py/enqueue_job",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls queue put" },
+    { "id": "f2", "kind": "signature", "content": "function enqueue (4 LOC)" }
+  ],
+  "summary": "Wraps the payload into a job and appends it via queue put. Also reorders the queue by deadline weekly.",
+  "labels": [
+    { "sentence": "Wraps the payload into a job and appends it via queue put.", "entailed": true },
+    { "sentence": "Also reorders the queue by deadline weekly.", "entailed": false }
+  ]
+}

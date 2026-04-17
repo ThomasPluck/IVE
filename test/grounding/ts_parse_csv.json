@@ -1,0 +1,13 @@
+{
+  "id": "ts/parse_csv",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls string split" },
+    { "id": "f2", "kind": "return_type", "content": "returns Array" }
+  ],
+  "summary": "Parses each line by splitting on commas with string split and returns the Array of rows. Validates the column count against a server-side schema.",
+  "labels": [
+    { "sentence": "Parses each line by splitting on commas with string split and returns the Array of rows.", "entailed": true },
+    { "sentence": "Validates the column count against a server-side schema.", "entailed": false }
+  ]
+}

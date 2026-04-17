@@ -1,0 +1,12 @@
+{
+  "id": "ts/assert_never",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function assertNever (3 LOC)" },
+    { "id": "f2", "kind": "raises", "content": "raises Error" }
+  ],
+  "summary": "Accepts an argument typed `never` and always raises Error; used in exhaustive switch branches.",
+  "labels": [
+    { "sentence": "Accepts an argument typed `never` and always raises Error; used in exhaustive switch branches.", "entailed": true }
+  ]
+}

@@ -127,12 +127,11 @@ impl Scoreboard {
 #[test]
 fn entailment_gate_meets_spec_precision_and_recall() {
     let cases = load_cases();
-    // The spec targets 100 hand-labeled pairs. The floor ratchets up as PRs
-    // grow the corpus — dropping cases is a deliberate call, not a silent
-    // regression.
+    // The spec §8 target was 100 hand-labeled pairs. We're there — the floor
+    // stays at 100 so subsequent PRs can't silently shrink the corpus.
     assert!(
-        cases.len() >= 70,
-        "grounding corpus must keep ≥70 cases; found {}",
+        cases.len() >= 100,
+        "grounding corpus must keep ≥100 cases (spec §8 target); found {}",
         cases.len()
     );
 

@@ -1,0 +1,13 @@
+{
+  "id": "ts/safe_parse",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls JSON parse" },
+    { "id": "f2", "kind": "return_type", "content": "returns unknown" }
+  ],
+  "summary": "Attempts to JSON parse the input and returns the unknown value or null on SyntaxError. Also publishes parse failures to a dead-letter queue.",
+  "labels": [
+    { "sentence": "Attempts to JSON parse the input and returns the unknown value or null on SyntaxError.", "entailed": true },
+    { "sentence": "Also publishes parse failures to a dead-letter queue.", "entailed": false }
+  ]
+}

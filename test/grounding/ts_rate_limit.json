@@ -1,0 +1,14 @@
+{
+  "id": "ts/rate_limit",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function rateLimit (10 LOC)" },
+    { "id": "f2", "kind": "call", "content": "calls Date now" }
+  ],
+  "summary": "Gates calls based on a token bucket keyed by Date now timestamps. Returns true when the call is allowed and false otherwise. Applies the same budget across a distributed cluster via a shared Redis lock.",
+  "labels": [
+    { "sentence": "Gates calls based on a token bucket keyed by Date now timestamps.", "entailed": true },
+    { "sentence": "Returns true when the call is allowed and false otherwise.", "entailed": true },
+    { "sentence": "Applies the same budget across a distributed cluster via a shared Redis lock.", "entailed": false }
+  ]
+}

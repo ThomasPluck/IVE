@@ -1,0 +1,13 @@
+{
+  "id": "ts/merge_records",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls Object assign" },
+    { "id": "f2", "kind": "return_type", "content": "returns Record" }
+  ],
+  "summary": "Merges the two records via Object assign and returns the combined Record. Also propagates the merge to an event-sourced log.",
+  "labels": [
+    { "sentence": "Merges the two records via Object assign and returns the combined Record.", "entailed": true },
+    { "sentence": "Also propagates the merge to an event-sourced log.", "entailed": false }
+  ]
+}

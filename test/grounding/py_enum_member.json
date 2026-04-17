@@ -1,0 +1,13 @@
+{
+  "id": "py/enum_member",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function parse (3 LOC)" },
+    { "id": "f2", "kind": "return_type", "content": "returns Enum" }
+  ],
+  "summary": "Looks up the enum member by name and returns the Enum value. Also prints ASCII art of the resolved value to stdout.",
+  "labels": [
+    { "sentence": "Looks up the enum member by name and returns the Enum value.", "entailed": true },
+    { "sentence": "Also prints ASCII art of the resolved value to stdout.", "entailed": false }
+  ]
+}

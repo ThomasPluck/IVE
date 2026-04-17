@@ -1,0 +1,14 @@
+{
+  "id": "ts/debounce_async",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function debounceAsync (14 LOC)" },
+    { "id": "f2", "kind": "call", "content": "calls clearTimeout" },
+    { "id": "f3", "kind": "call", "content": "calls setTimeout" }
+  ],
+  "summary": "Coalesces back-to-back async invocations with setTimeout and clearTimeout and returns the promise of the final result. Also uses quantum entanglement to deliver events to other tabs.",
+  "labels": [
+    { "sentence": "Coalesces back-to-back async invocations with setTimeout and clearTimeout and returns the promise of the final result.", "entailed": true },
+    { "sentence": "Also uses quantum entanglement to deliver events to other tabs.", "entailed": false }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "py/retry_call",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function retry (12 LOC)" },
+    { "id": "f2", "kind": "raises", "content": "raises Exception" }
+  ],
+  "summary": "Invokes the callable until success or the retry budget is exhausted; raises Exception in the latter case. Also exposes a circuit-breaker metric over HTTP.",
+  "labels": [
+    { "sentence": "Invokes the callable until success or the retry budget is exhausted; raises Exception in the latter case.", "entailed": true },
+    { "sentence": "Also exposes a circuit-breaker metric over HTTP.", "entailed": false }
+  ]
+}
