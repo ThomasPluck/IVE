@@ -101,13 +101,23 @@ export function Diagnostics({ diagnostics }: { diagnostics: Record<string, Diagn
           vs().postMessage({ type: "openFile", location: ordered[cursor].location });
           e.preventDefault();
           break;
-        case ".":
-          // Fix trigger is a daemon-side feature; when the diagnostic carries
-          // a `fix`, the extension applies TextEdits. The webview asks the
-          // extension to open the file and surface it as a quick-fix lightbulb.
-          vs().postMessage({ type: "openFile", location: ordered[cursor].location });
+        case ".": {
+          // Fix keybinding — only fires when the selected diagnostic carries
+          // a `fix` field. Extension applies the TextEdits via
+          // vscode.WorkspaceEdit.
+          const d = ordered[cursor];
+          if (d?.fix) {
+            vs().postMessage({
+              type: "applyFix",
+              diagnosticId: d.id,
+              fix: d.fix,
+            });
+          } else {
+            vs().postMessage({ type: "openFile", location: d.location });
+          }
           e.preventDefault();
           break;
+        }
       }
     },
     [ordered, cursor],
@@ -204,7 +214,18 @@ function DiagnosticRow({
           {d.location.file}:{d.location.range.start[0] + 1}
         </span>
       </div>
-      {d.fix ? <div className="diag-fix">↩ fix: {d.fix.description}</div> : null}
+      {d.fix ? (
+        <button
+          className="diag-fix"
+          onClick={(e) => {
+            e.stopPropagation();
+            vs().postMessage({ type: "applyFix", diagnosticId: d.id, fix: d.fix! });
+          }}
+          title="Apply this fix"
+        >
+          ↩ fix: {d.fix.description}
+        </button>
+      ) : null}
     </li>
   );
 }

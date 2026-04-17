@@ -211,4 +211,5 @@ export type FromWebviewMessage =
   | { type: "rpc"; id: number; method: MethodName; params: unknown }
   | { type: "openFile"; location: Location }
   | { type: "summarize"; symbol: SymbolId }
-  | { type: "sliceRequested"; request: SliceRequest };
+  | { type: "sliceRequested"; request: SliceRequest }
+  | { type: "applyFix"; diagnosticId: string; fix: Fix };

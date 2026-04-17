@@ -4,6 +4,7 @@ import { IvePanel } from "./panel";
 import { DiagnosticBridge } from "./diagnostics";
 import { registerCommands } from "./commands";
 import { HealthCodeLensProvider, buildDecorations } from "./codelens";
+import { IveHoverProvider } from "./hover";
 import { resolveDaemon } from "./pack";
 import type { HealthScore } from "./contracts";
 import * as log from "./logger";
@@ -83,15 +84,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   registerCommands(context, { daemon, panel });
 
   const codeLens = new HealthCodeLensProvider(daemon);
+  const hover = new IveHoverProvider();
+  const languageSelectors = [
+    { language: "python", scheme: "file" },
+    { language: "typescript", scheme: "file" },
+    { language: "typescriptreact", scheme: "file" },
+    { language: "rust", scheme: "file" },
+  ];
   context.subscriptions.push(
-    vscode.languages.registerCodeLensProvider(
-      [
-        { language: "python", scheme: "file" },
-        { language: "typescript", scheme: "file" },
-        { language: "typescriptreact", scheme: "file" },
-      ],
-      codeLens,
-    ),
+    vscode.languages.registerCodeLensProvider(languageSelectors, codeLens),
+    vscode.languages.registerHoverProvider(languageSelectors, hover),
   );
 
   const latestScores: { value: HealthScore[] } = { value: [] };
@@ -109,6 +111,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (event.type === "healthUpdated") {
       latestScores.value = event.scores;
       codeLens.refresh();
+      hover.setScores(event.scores);
       refreshEditorDecorations();
     }
   });

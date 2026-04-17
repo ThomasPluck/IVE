@@ -9,6 +9,7 @@ import type {
   FromExtensionMessage,
   FromWebviewMessage,
   HealthScore,
+  Location,
   MethodName,
   MethodRequest,
   MethodResponse,
@@ -123,7 +124,38 @@ export class IvePanel implements vscode.WebviewViewProvider {
           });
         }
         break;
+      case "applyFix":
+        await this.applyFix(msg.fix);
+        break;
     }
+  }
+
+  private async applyFix(fix: { description: string; edits: { location: Location; newText: string }[] }): Promise<void> {
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || folders.length === 0) return;
+    const root = folders[0].uri;
+    const wsEdit = new vscode.WorkspaceEdit();
+    for (const edit of fix.edits) {
+      const uri = vscode.Uri.joinPath(root, edit.location.file);
+      const range = new vscode.Range(
+        new vscode.Position(edit.location.range.start[0], edit.location.range.start[1]),
+        new vscode.Position(edit.location.range.end[0], edit.location.range.end[1]),
+      );
+      wsEdit.replace(uri, range, edit.newText);
+    }
+    const applied = await vscode.workspace.applyEdit(wsEdit);
+    if (!applied) {
+      vscode.window.showWarningMessage(`IVE: fix "${fix.description}" could not be applied.`);
+      return;
+    }
+    // Save the affected documents so the daemon's watcher picks the change up.
+    const touched = new Set(fix.edits.map((e) => e.location.file));
+    for (const rel of touched) {
+      const uri = vscode.Uri.joinPath(root, rel);
+      const doc = await vscode.workspace.openTextDocument(uri);
+      await doc.save();
+    }
+    vscode.window.setStatusBarMessage(`IVE: applied fix — ${fix.description}`, 4000);
   }
 
   private renderHtml(webview: vscode.Webview): string {

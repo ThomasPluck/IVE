@@ -18,7 +18,7 @@
 //! Events are emitted as notifications with method `daemon.event` and the
 //! `DaemonEvent` union as `params`.
 
-use crate::analyzers::{grounding, joern, lsp, semgrep, slice};
+use crate::analyzers::{grounding, joern, lsp, pytea, semgrep, slice};
 use crate::contracts::{
     CacheInvalidateRequest, DaemonEvent, FileRequest, HealthScore, Location, LocationRequest,
     SliceRequest, SummaryRequest,
@@ -312,6 +312,10 @@ pub async fn dispatch_method(
                 "semgrep": {
                     "available": semgrep::binary_present(),
                     "reason": if semgrep::binary_present() { "ready" } else { semgrep::degraded_reason() },
+                },
+                "pytea": {
+                    "available": pytea::binary_present(),
+                    "reason": if pytea::binary_present() { "ready" } else { pytea::degraded_reason() },
                 },
                 "llm": {
                     "available": std::env::var("ANTHROPIC_API_KEY").is_ok(),

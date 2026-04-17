@@ -72,12 +72,27 @@ export class DiagnosticRelatedInformation {
   ) {}
 }
 
+export class MarkdownString {
+  value = "";
+  isTrusted = false;
+  appendMarkdown(text: string) {
+    this.value += text;
+    return this;
+  }
+}
+
+export class Hover {
+  constructor(public contents: MarkdownString | MarkdownString[]) {}
+}
+
 export const window = {
   createOutputChannel: () => new OutputChannel(),
 };
 
 export const languages = {
   createDiagnosticCollection: (_name: string) => new DiagnosticCollection(),
+  registerHoverProvider: (..._args: unknown[]) => ({ dispose() {} }),
+  registerCodeLensProvider: (..._args: unknown[]) => ({ dispose() {} }),
 };
 
 export const workspace = {

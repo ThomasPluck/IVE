@@ -5,7 +5,7 @@
 //! For cold scans and manual rescan we simply iterate — the watcher is only
 //! about delta updates.
 
-use crate::analyzers::{binding, crossfile, hallucination, lsp, semgrep};
+use crate::analyzers::{binding, crossfile, hallucination, lsp, pytea, semgrep};
 use crate::cache::DiskCache;
 use crate::contracts::{DaemonEvent, Diagnostic};
 use crate::events::EventTx;
@@ -182,6 +182,14 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
                 .filter(|d| d.location.file == sf.relative_path)
                 .cloned(),
         );
+
+        // PyTea shape diagnostics — Python only, further gated on `import
+        // torch` so we don't shell out on every .py file.
+        if matches!(sf.language, crate::parser::Language::Python) && pytea::binary_present() {
+            if let Some(py_diags) = pytea::scan_file(&state.root, &sf.relative_path) {
+                diagnostics.extend(py_diags);
+            }
+        }
 
         let file_churn = churn.get(&sf.relative_path).copied().unwrap_or(0);
         let mut fn_scores = Vec::with_capacity(sf.functions.len());

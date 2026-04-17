@@ -523,6 +523,22 @@ fn make_diagnostic(file: &str, imp: &ImportEntry, lang: &Language) -> Diagnostic
         "hallucination:{}:{}:{}",
         file, imp.range_start[0], imp.module
     );
+    // Suggest deleting the import line. A TextEdit whose range covers the
+    // whole statement and whose newText is empty is applied as a deletion.
+    // The editor collapses the resulting blank line on save.
+    let fix = Some(crate::contracts::Fix {
+        description: format!("Delete `import {}`", imp.module),
+        edits: vec![crate::contracts::TextEdit {
+            location: Location {
+                file: file.to_string(),
+                range: Range {
+                    start: [imp.range_start[0], 0],
+                    end: [imp.range_start[0] + 1, 0],
+                },
+            },
+            new_text: String::new(),
+        }],
+    });
     Diagnostic {
         id,
         severity: Severity::Critical,
@@ -538,7 +554,7 @@ fn make_diagnostic(file: &str, imp: &ImportEntry, lang: &Language) -> Diagnostic
         },
         symbol: None,
         related: vec![],
-        fix: None,
+        fix,
     }
 }
 
