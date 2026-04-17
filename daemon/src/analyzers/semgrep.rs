@@ -15,6 +15,9 @@ use std::process::Command;
 use std::time::Duration;
 
 pub fn binary_present() -> bool {
+    if std::env::var("IVE_SKIP_SEMGREP").is_ok() {
+        return false;
+    }
     Command::new("semgrep")
         .arg("--version")
         .output()
@@ -52,13 +55,13 @@ pub fn scan_path(target: &Path, rules: &Path) -> Option<Vec<Diagnostic>> {
     if !binary_present() {
         return None;
     }
+    // Semgrep ≥1.x exits non-zero when it finds issues — we consume
+    // stdout either way and don't pass the flag that older versions used
+    // for this (it was renamed/removed across versions).
     let output = Command::new("semgrep")
         .arg("--config")
         .arg(rules)
         .arg("--json")
-        .arg("--quiet")
-        .arg("--error-on-findings")
-        .arg("false")
         .arg("--timeout")
         .arg("10")
         .arg(target)
@@ -76,7 +79,20 @@ pub fn scan_path(target: &Path, rules: &Path) -> Option<Vec<Diagnostic>> {
 }
 
 fn result_to_diagnostic(r: &serde_json::Value, target: &Path) -> Option<Diagnostic> {
-    let check_id = r.get("check_id")?.as_str()?;
+    let raw_check_id = r.get("check_id")?.as_str()?;
+    // Semgrep prefixes the check_id with the parent directory path,
+    // e.g. `home.user.repo.rules.ive-ai-slop.eval-on-untyped-input`.
+    // Keep only the last two components (`ive-ai-slop.<rule>`) so the code
+    // stays stable regardless of install location.
+    let check_id: String = {
+        let parts: Vec<&str> = raw_check_id.split('.').collect();
+        if parts.len() >= 2 {
+            parts[parts.len() - 2..].join(".")
+        } else {
+            raw_check_id.to_string()
+        }
+    };
+    let check_id = check_id.as_str();
     let path = r.get("path")?.as_str()?;
     let start = r.get("start")?;
     let end = r.get("end")?;

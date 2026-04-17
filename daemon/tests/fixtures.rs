@@ -130,11 +130,15 @@ async fn cold_scan_under_latency_budget() {
     // its own cold-start cost that isn't ours to blame). Budget is tuned
     // for CI: anything under 1.5s is comfortably within spec.
     std::env::set_var("IVE_SKIP_PYRIGHT", "1");
+    std::env::set_var("IVE_SKIP_SEMGREP", "1");
+    std::env::set_var("IVE_SKIP_TSC", "1");
     let dir = isolate(&repo_root().join("test/fixtures/ai-slop/python"));
     let started = std::time::Instant::now();
     let _state = scan(dir).await;
     let elapsed = started.elapsed();
     std::env::remove_var("IVE_SKIP_PYRIGHT");
+    std::env::remove_var("IVE_SKIP_SEMGREP");
+    std::env::remove_var("IVE_SKIP_TSC");
     assert!(
         elapsed < std::time::Duration::from_millis(1500),
         "scan too slow: {elapsed:?} (budget 1.5s for the python fixture)"
@@ -223,6 +227,117 @@ async fn pyright_fixture_flags_type_error_when_pyright_is_installed() {
             .map(|d| format!("{:?}", d.source))
             .collect::<Vec<_>>()
     );
+}
+
+/// Intra-function backward slice (workstream C partial). No external
+/// binaries — pure tree-sitter; always runs.
+///
+/// The fixture we ship here is a simple `def` with a sequence of
+/// straight-line assignments; that's the case the thin slicer handles
+/// unambiguously. Slicing into nested control flow is a known limit
+/// (see `slice.rs` doc comment).
+#[tokio::test]
+async fn intra_function_backward_slice_chains_assignments() {
+    use ive_daemon::analyzers::slice;
+    use ive_daemon::contracts::{Location, Range, SliceDirection, SliceKind, SliceRequest};
+    use ive_daemon::parser::Language;
+
+    let tmp = std::env::temp_dir().join(format!(
+        "ive-slice-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let src = "def f(a):\n    x = a * 2\n    y = a + 1\n    result = x + y\n    return result\n";
+    let path = tmp.join("a.py");
+    std::fs::write(&path, src).unwrap();
+
+    // Cursor inside `return result` (line index 4, col 11 hits `result`).
+    let req = SliceRequest {
+        origin: Location {
+            file: "a.py".into(),
+            range: Range {
+                start: [4, 11],
+                end: [4, 11],
+            },
+        },
+        direction: SliceDirection::Backward,
+        kind: SliceKind::Thin,
+        max_hops: Some(10),
+        cross_file: false,
+    };
+    let bytes = std::fs::read(&path).unwrap();
+    match slice::compute(&req, &bytes, Language::Python) {
+        slice::Outcome::Ok(s) => {
+            let labels: Vec<String> = s.nodes.iter().map(|n| n.label.clone()).collect();
+            assert!(
+                labels.iter().any(|l| l.contains("return result")),
+                "origin `return result` must be in slice; got: {labels:?}"
+            );
+            assert!(
+                labels.iter().any(|l| l.contains("result = x + y")),
+                "`result = x + y` must be in slice; got: {labels:?}"
+            );
+            assert!(
+                labels.iter().any(|l| l.contains("x = a * 2")),
+                "`x = a * 2` must be in slice; got: {labels:?}"
+            );
+            assert!(
+                labels.iter().any(|l| l.contains("y = a + 1")),
+                "`y = a + 1` must be in slice; got: {labels:?}"
+            );
+        }
+        other => panic!(
+            "expected Ok, got {}",
+            match other {
+                slice::Outcome::NeedsCpg(m) => format!("NeedsCpg({m})"),
+                slice::Outcome::NoEnclosingFunction => "NoEnclosingFunction".into(),
+                _ => "Ok".into(),
+            }
+        ),
+    }
+    std::fs::remove_dir_all(&tmp).ok();
+}
+
+/// Semgrep-backed diagnostics. Skipped when the binary is missing; CI
+/// installs it via `pip install semgrep`.
+#[tokio::test]
+async fn semgrep_fixture_flags_multiple_rules_when_installed() {
+    if !ive_daemon::analyzers::semgrep::binary_present() {
+        eprintln!("skipping: semgrep not on PATH");
+        return;
+    }
+    std::env::set_var("IVE_SKIP_PYRIGHT", "1");
+    let dir = isolate(&repo_root().join("test/fixtures/ai-slop/semgrep"));
+    let state = scan(dir).await;
+    std::env::remove_var("IVE_SKIP_PYRIGHT");
+    let w = state.workspace.read().await;
+    let diags = w.diagnostics.get("app.py").expect("app.py indexed");
+    let semgrep_rules: std::collections::HashSet<String> = diags
+        .iter()
+        .filter(|d| matches!(d.source, ive_daemon::contracts::DiagnosticSource::Semgrep))
+        .map(|d| d.code.clone())
+        .collect();
+    assert!(
+        semgrep_rules.len() >= 3,
+        "expected ≥3 distinct semgrep rule hits; got {:?}",
+        semgrep_rules
+    );
+    let required = [
+        "ive-ai-slop.eval-on-untyped-input",
+        "ive-ai-slop.requests-no-verify",
+        "ive-ai-slop.weak-hash-for-credentials",
+    ];
+    for r in required {
+        assert!(
+            semgrep_rules.iter().any(|c| c == r),
+            "expected rule {r}; got {:?}",
+            semgrep_rules
+        );
+    }
 }
 
 /// tsc-backed type diagnostics. Skipped when tsc isn't on PATH; ubuntu-

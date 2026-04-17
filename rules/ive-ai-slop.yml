@@ -2,15 +2,16 @@
 #
 # Scope is deliberately narrow (spec §9 risk 8). The goal is to catch
 # patterns that LLMs produce more often than humans, not to replace a full
-# SAST. Each rule must have a fixture in test/fixtures/ai-slop/ that
+# SAST. Each rule must have a fixture in test/fixtures/ai-slop/semgrep/ that
 # exercises it.
 #
 # This file is **versioned** — see CHANGELOG.md. Bumping the ruleset version
 # requires the daemon to invalidate cached Semgrep results.
-version: "0.1.0"
+version: "0.2.0"
 
 rules:
-  - id: ive-ai-slop/eval-on-untyped-input
+  # ── CWE-94 / CWE-95 (Code Injection) ─────────────────────────────
+  - id: ive-ai-slop.eval-on-untyped-input
     languages: [python]
     severity: ERROR
     message: "eval() on user-controlled input — LLMs frequently emit this for 'parse user JSON' flows. Use json.loads or ast.literal_eval."
@@ -19,9 +20,23 @@ rules:
       - pattern: exec($X)
     metadata:
       category: security
+      cwe: "CWE-94"
       owasp: "A03:2021 — Injection"
 
-  - id: ive-ai-slop/shell-true-from-format
+  - id: ive-ai-slop.js-eval
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: "eval() / Function(string) — never execute untyped input as code. Rewrite with JSON.parse or a switch."
+    pattern-either:
+      - pattern: eval($X)
+      - pattern: new Function($X)
+      - pattern: Function($X)
+    metadata:
+      category: security
+      cwe: "CWE-94"
+
+  # ── CWE-78 (OS Command Injection) ────────────────────────────────
+  - id: ive-ai-slop.shell-true-from-format
     languages: [python]
     severity: ERROR
     message: "subprocess call with shell=True and a format/interpolated string — classic command-injection shape."
@@ -29,9 +44,40 @@ rules:
       - pattern: subprocess.run(f"...{$X}...", shell=True, ...)
       - pattern: subprocess.call(f"...{$X}...", shell=True, ...)
       - pattern: subprocess.Popen(f"...{$X}...", shell=True, ...)
+      - pattern: os.system(f"...{$X}...")
+    metadata:
+      category: security
+      cwe: "CWE-78"
 
-  - id: ive-ai-slop/sql-string-concat
-    languages: [python, typescript, javascript]
+  - id: ive-ai-slop.js-exec-template
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: "child_process.exec with a template string — command injection. Use execFile / spawn with argv array."
+    pattern-either:
+      - pattern: exec(`...${$X}...`)
+      - pattern: execSync(`...${$X}...`)
+      - pattern: $M.exec(`...${$X}...`)
+      - pattern: $M.execSync(`...${$X}...`)
+    metadata:
+      category: security
+      cwe: "CWE-78"
+
+  # ── CWE-89 (SQL Injection) ────────────────────────────────────────
+  - id: ive-ai-slop.py-sql-string-concat
+    languages: [python]
+    severity: ERROR
+    message: "SQL string concatenation — use a parameterised query."
+    pattern-either:
+      - pattern: $DB.execute("..." + $X + "...")
+      - pattern: $DB.query("..." + $X + "...")
+      - pattern: $DB.execute(f"...{$X}...")
+      - pattern: $DB.query(f"...{$X}...")
+    metadata:
+      category: security
+      cwe: "CWE-89"
+
+  - id: ive-ai-slop.js-sql-string-concat
+    languages: [typescript, javascript]
     severity: ERROR
     message: "SQL string concatenation — use a parameterised query."
     pattern-either:
@@ -39,14 +85,22 @@ rules:
       - pattern: $DB.query("..." + $X + "...")
       - pattern: $DB.execute(`...${$X}...`)
       - pattern: $DB.query(`...${$X}...`)
+    metadata:
+      category: security
+      cwe: "CWE-89"
 
-  - id: ive-ai-slop/hardcoded-secret
+  # ── CWE-798 (Hardcoded Credentials) ───────────────────────────────
+  - id: ive-ai-slop.hardcoded-secret
     languages: [python, typescript, javascript]
     severity: ERROR
     message: "Literal credential — move to environment or secret store."
     pattern-regex: "(?i)(api[_-]?key|secret|token|password|passwd)\\s*[:=]\\s*['\"][^'\"\\s]{16,}['\"]"
+    metadata:
+      category: security
+      cwe: "CWE-798"
 
-  - id: ive-ai-slop/silent-except
+  # ── CWE-703 (Improper Exception Handling) ─────────────────────────
+  - id: ive-ai-slop.silent-except
     languages: [python]
     severity: WARNING
     message: "Bare except: pass — LLM boilerplate that swallows every error. Name a specific exception or log."
@@ -55,3 +109,88 @@ rules:
         ...
       except:
         pass
+    metadata:
+      category: reliability
+      cwe: "CWE-703"
+
+  - id: ive-ai-slop.broad-except-pass
+    languages: [python]
+    severity: WARNING
+    message: "except Exception: pass — swallows every runtime error. Log or re-raise."
+    pattern: |
+      try:
+        ...
+      except Exception:
+        pass
+    metadata:
+      category: reliability
+      cwe: "CWE-703"
+
+  # ── CWE-295 (SSL/TLS Verification Disabled) ───────────────────────
+  - id: ive-ai-slop.requests-no-verify
+    languages: [python]
+    severity: ERROR
+    message: "requests call with verify=False — LLMs love this shortcut. Leave TLS verification on."
+    pattern-either:
+      - pattern: requests.get(..., verify=False, ...)
+      - pattern: requests.post(..., verify=False, ...)
+      - pattern: requests.put(..., verify=False, ...)
+      - pattern: requests.delete(..., verify=False, ...)
+      - pattern: requests.request(..., verify=False, ...)
+    metadata:
+      category: security
+      cwe: "CWE-295"
+
+  # ── CWE-327 (Weak Crypto) ─────────────────────────────────────────
+  - id: ive-ai-slop.weak-hash-for-credentials
+    languages: [python]
+    severity: WARNING
+    message: "md5/sha1 for credential hashing — use bcrypt/argon2/scrypt."
+    pattern-either:
+      - pattern: hashlib.md5($X).hexdigest()
+      - pattern: hashlib.sha1($X).hexdigest()
+    metadata:
+      category: security
+      cwe: "CWE-327"
+
+  # ── CWE-259 (Hardcoded default password) ──────────────────────────
+  - id: ive-ai-slop.default-admin-password
+    languages: [python, typescript, javascript]
+    severity: ERROR
+    message: "Hardcoded 'admin/admin' or 'admin/password' — real login flow must not ship this even as fallback."
+    pattern-regex: "(?i)(password|passwd|pass)\\s*[:=]\\s*['\"](admin|password|changeme|letmein|123456)['\"]"
+    metadata:
+      category: security
+      cwe: "CWE-259"
+
+  # ── AI-specific: LLM-parroted TODOs that pretend to be done ───────
+  - id: ive-ai-slop.pretend-implemented
+    languages: [python, typescript, javascript]
+    severity: WARNING
+    message: "Stub marked 'fully implemented' or 'production ready' in a comment adjacent to a pass / TODO body — the LLM declared victory prematurely."
+    pattern-regex: "(?i)(fully implemented|production.ready|ready for production|complete solution).{0,80}\\n\\s*(pass|return\\s*(None|null|undefined)?\\s*$|TODO)"
+
+  # ── AI-specific: raise NotImplementedError on a hot path ──────────
+  - id: ive-ai-slop.raise-not-implemented
+    languages: [python]
+    severity: WARNING
+    message: "raise NotImplementedError at function body start — stub left behind."
+    pattern: |
+      def $F(...):
+        raise NotImplementedError(...)
+    metadata:
+      category: maintainability
+
+  # ── CWE-22 (Path Traversal) ───────────────────────────────────────
+  - id: ive-ai-slop.open-user-path
+    languages: [python]
+    severity: WARNING
+    message: "open() on a user-provided path without sanitisation — path traversal shape. Resolve + check prefix."
+    pattern-either:
+      - pattern: open(request.args[$K], ...)
+      - pattern: open(request.form[$K], ...)
+      - pattern: open(request.json[$K], ...)
+      - pattern: open(f"...{request.args[$K]}...", ...)
+    metadata:
+      category: security
+      cwe: "CWE-22"

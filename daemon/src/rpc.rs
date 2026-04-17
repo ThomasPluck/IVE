@@ -286,8 +286,20 @@ pub async fn dispatch_method(
         "capabilities.status" => {
             let pyright_ready = lsp::pyright_present();
             let tsc_ready = lsp::tsc_present();
+            let joern_ready = joern::available();
             Ok(json!({
-                "cpg": { "available": false, "reason": joern::degraded_reason() },
+                "cpg": {
+                    "available": joern_ready,
+                    "reason": if joern_ready {
+                        "Joern detected; full cross-file slice queries are still pending wiring"
+                    } else {
+                        joern::degraded_reason()
+                    },
+                },
+                "slice": {
+                    "available": true,
+                    "reason": "intra-function AST slicing ready; cross-file needs CPG (workstream C)",
+                },
                 "pyright": {
                     "available": pyright_ready,
                     "reason": if pyright_ready { "ready" } else { "pyright not on PATH" },
