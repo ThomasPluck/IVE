@@ -1,0 +1,7 @@
+expected_diagnostics:
+  - code: ive-binding/unknown-uniform
+    name: uTexture
+    severity: error
+expected_non_offenders:
+  - uProjection
+  - uLight

@@ -7,6 +7,7 @@
 //! - `semgrep`       — workstream E (stub)
 //! - `grounding`     — workstream G (stub)
 
+pub mod binding;
 pub mod crossfile;
 pub mod grounding;
 pub mod hallucination;

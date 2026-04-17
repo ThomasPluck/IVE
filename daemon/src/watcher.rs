@@ -5,7 +5,7 @@
 //! For cold scans and manual rescan we simply iterate — the watcher is only
 //! about delta updates.
 
-use crate::analyzers::{crossfile, hallucination, semgrep};
+use crate::analyzers::{binding, crossfile, hallucination, semgrep};
 use crate::cache::DiskCache;
 use crate::contracts::{DaemonEvent, Diagnostic};
 use crate::events::EventTx;
@@ -69,6 +69,7 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
     let fan_in = health::build_fan_in(&scanned_map);
     let def_index = crossfile::build_def_index(&state.root, &scanned_map);
     let local_modules = hallucination::LocalModules::from_workspace(&state.root);
+    let shader_syms = binding::ShaderSymbols::from_workspace(&state.root);
     let churn = git::collect_churn(&state.root, 14);
 
     // Workspace-wide Semgrep pass (optional; degrades cleanly if absent).
@@ -99,9 +100,11 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
         let mut diagnostics = hallucination::check_file(sf, &workspace.lockfiles, &local_modules);
         let hallucinated = diagnostics.len() as u32;
 
-        // Cross-file arity: only runs when we can re-read the file quickly.
+        // Cross-file arity + WebGL binding check: both need the file
+        // bytes, so we re-read once.
         if let Ok(bytes) = std::fs::read(state.root.join(&sf.relative_path)) {
             diagnostics.extend(crossfile::check(sf, &bytes, &def_index));
+            diagnostics.extend(binding::check(sf, &bytes, &shader_syms));
         }
 
         // Semgrep diagnostics for this file, filtered from the workspace run.

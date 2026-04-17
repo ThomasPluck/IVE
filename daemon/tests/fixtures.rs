@@ -66,6 +66,30 @@ async fn typescript_hallucinated_fixture_flags_imaginary_and_allows_node_fs_prom
 }
 
 #[tokio::test]
+async fn webgl_binding_fixture_flags_missing_uniform() {
+    let dir = repo_root().join("test/fixtures/ai-slop/webgl");
+    let state = scan(dir).await;
+    let w = state.workspace.read().await;
+    let diags = w
+        .diagnostics
+        .get("renderer.ts")
+        .expect("renderer.ts indexed");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == "ive-binding/unknown-uniform" && d.message.contains("uTexture")),
+        "expected unknown-uniform diag for uTexture; got: {:?}",
+        diags.iter().map(|d| &d.message).collect::<Vec<_>>()
+    );
+    assert!(
+        !diags
+            .iter()
+            .any(|d| d.code == "ive-binding/unknown-uniform" && d.message.contains("uProjection")),
+        "uProjection is a real uniform and must not flag"
+    );
+}
+
+#[tokio::test]
 async fn cold_scan_under_latency_budget() {
     // Spec §8: cold scan 10k LOC in <5s. Our fixtures are tiny so the bar
     // is far tighter — if a single-digit-kLOC workspace takes more than a
