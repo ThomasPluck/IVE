@@ -10,6 +10,11 @@ out/
 coverage/
 .vite/
 
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
 # IVE runtime state
 .ive/
 

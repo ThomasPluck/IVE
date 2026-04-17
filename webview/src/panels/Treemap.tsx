@@ -20,16 +20,29 @@ export function Treemap({ scores }: { scores: HealthScore[] }) {
   const [hover, setHover] = useState<{ rect: Rect; x: number; y: number } | null>(null);
   const [drill, setDrill] = useState<DrillView | null>(null);
 
+  // Attach ResizeObserver whenever the host div is present. We key on
+  // `scores.length > 0` because early-return states below unmount the
+  // ref-div, which would orphan a static `[]`-dep effect. Re-running
+  // lets the observer fire after scores arrive.
   useEffect(() => {
-    if (!ref.current) return;
+    const host = ref.current;
+    if (!host) return;
+    // Prime synchronously so the first layout is non-zero even if
+    // ResizeObserver hasn't fired yet. Playwright in headless chromium
+    // occasionally defers the initial RO callback long enough that our
+    // click tests would otherwise land on 0×0 tiles.
+    const rect = host.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      setSize({ width: rect.width, height: rect.height });
+    }
     const ro = new ResizeObserver((entries) => {
       for (const e of entries) {
         setSize({ width: e.contentRect.width, height: e.contentRect.height });
       }
     });
-    ro.observe(ref.current);
+    ro.observe(host);
     return () => ro.disconnect();
-  }, []);
+  }, [scores.length > 0]);
 
   const activeScores = useMemo(() => {
     if (drill?.kind === "file") {

@@ -42,6 +42,11 @@ jobs:
       - name: webview test + build
         run: |
           cd webview && npm test && npm run build
+      - name: webview e2e (Playwright)
+        run: |
+          cd webview
+          npx playwright install --with-deps chromium
+          npx playwright test
 
       - name: install extension deps
         run: |
