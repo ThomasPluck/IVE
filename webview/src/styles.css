@@ -231,6 +231,19 @@ progress {
 .diag-fix { color: var(--ive-blue); font-size: 11px; margin-top: 2px; }
 
 /* Summary */
+.summary-action {
+  margin-left: auto;
+  background: transparent;
+  color: var(--ive-blue);
+  border: 1px solid var(--ive-border);
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.summary-action:hover { color: var(--ive-text); border-color: var(--ive-blue); }
+.summary-action:disabled { opacity: 0.5; cursor: default; }
+
 .summary { padding: 8px 12px; }
 .summary > header { margin-bottom: 8px; }
 .summary-text { margin: 0; white-space: pre-wrap; font: inherit; }
@@ -244,3 +257,33 @@ progress {
 
 /* Slice */
 .slice-empty { padding: 16px; color: var(--ive-text-dim); }
+.slice { display: flex; flex-direction: column; height: 100%; }
+.slice-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  font-size: 11px;
+  border-bottom: 1px solid var(--ive-border);
+  background: var(--ive-surface);
+}
+.slice-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow: auto;
+  flex: 1;
+}
+.slice-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.slice-row:hover { background: var(--ive-surface); }
+.slice-row:focus-visible { outline: 1px solid var(--ive-blue); }
+.slice-dot { color: var(--ive-blue); width: 1em; text-align: center; }
+.slice-label { flex: 1; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.slice-loc { white-space: nowrap; font-size: 11px; }
+.banner-inline { color: var(--ive-yellow); font-size: 11px; }

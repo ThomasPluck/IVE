@@ -224,3 +224,40 @@ async fn pyright_fixture_flags_type_error_when_pyright_is_installed() {
             .collect::<Vec<_>>()
     );
 }
+
+/// tsc-backed type diagnostics. Skipped when tsc isn't on PATH; ubuntu-
+/// latest ships it via setup-node, and our CI job has the Node toolchain.
+#[tokio::test]
+async fn tsc_fixture_flags_type_errors_when_tsc_is_installed() {
+    if !ive_daemon::analyzers::lsp::tsc_present() {
+        eprintln!("skipping: tsc not on PATH");
+        return;
+    }
+    let dir = isolate(&repo_root().join("test/fixtures/ai-slop/tsc"));
+    let state = scan(dir).await;
+    let w = state.workspace.read().await;
+    let diags = w
+        .diagnostics
+        .get("src/broken.ts")
+        .expect("broken.ts indexed");
+    let tsc_count = diags
+        .iter()
+        .filter(|d| matches!(d.source, ive_daemon::contracts::DiagnosticSource::Tsc))
+        .count();
+    assert!(
+        tsc_count >= 3,
+        "expected ≥3 tsc diagnostics; got {} ({:?})",
+        tsc_count,
+        diags
+            .iter()
+            .map(|d| (format!("{:?}", d.source), d.code.clone()))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        diags.iter().any(
+            |d| matches!(d.source, ive_daemon::contracts::DiagnosticSource::Tsc)
+                && d.code == "TS2345"
+        ),
+        "expected TS2345 (argument-type mismatch)",
+    );
+}

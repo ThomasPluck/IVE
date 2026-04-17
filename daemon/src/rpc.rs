@@ -18,11 +18,12 @@
 //! Events are emitted as notifications with method `daemon.event` and the
 //! `DaemonEvent` union as `params`.
 
-use crate::analyzers::{grounding, joern, lsp, semgrep};
+use crate::analyzers::{grounding, joern, lsp, semgrep, slice};
 use crate::contracts::{
     CacheInvalidateRequest, DaemonEvent, FileRequest, HealthScore, Location, LocationRequest,
     SliceRequest, SummaryRequest,
 };
+use crate::parser::Language;
 use crate::state::SharedState;
 use crate::watcher;
 use serde::{Deserialize, Serialize};
@@ -232,17 +233,9 @@ pub async fn dispatch_method(
             Ok(Value::Array(list))
         }
         "slice.compute" => {
-            let _params: SliceRequest = serde_json::from_value(req.params.clone())
+            let params: SliceRequest = serde_json::from_value(req.params.clone())
                 .map_err(|e| RpcError::invalid_params(format!("{e}")))?;
-            let _ = ev_tx.send(DaemonEvent::CapabilityDegraded {
-                capability: "cpg".into(),
-                reason: joern::degraded_reason().into(),
-            });
-            Err(RpcError {
-                code: -32000,
-                message: joern::degraded_reason().into(),
-                data: Some(json!({"capability": "cpg"})),
-            })
+            handle_slice_compute(params, &state, &ev_tx).await
         }
         "summary.generate" => {
             let params: SummaryRequest = serde_json::from_value(req.params.clone())
@@ -292,13 +285,18 @@ pub async fn dispatch_method(
         }
         "capabilities.status" => {
             let pyright_ready = lsp::pyright_present();
+            let tsc_ready = lsp::tsc_present();
             Ok(json!({
                 "cpg": { "available": false, "reason": joern::degraded_reason() },
                 "pyright": {
                     "available": pyright_ready,
-                    "reason": if pyright_ready { "ready" } else { lsp::degraded_reason() },
+                    "reason": if pyright_ready { "ready" } else { "pyright not on PATH" },
                 },
-                "lsp": { "available": false, "reason": "tsc / rust-analyzer still stubbed (workstream D)" },
+                "tsc": {
+                    "available": tsc_ready,
+                    "reason": if tsc_ready { "ready" } else { "tsc not on PATH (npm i -g typescript)" },
+                },
+                "lsp": { "available": false, "reason": "rust-analyzer still stubbed (workstream D)" },
                 "semgrep": {
                     "available": semgrep::binary_present(),
                     "reason": if semgrep::binary_present() { "ready" } else { semgrep::degraded_reason() },
@@ -318,6 +316,62 @@ pub async fn dispatch_method(
             error!(method = %other, "unknown method");
             Err(RpcError::method_not_found(other))
         }
+    }
+}
+
+async fn handle_slice_compute(
+    req: SliceRequest,
+    state: &SharedState,
+    ev_tx: &mpsc::UnboundedSender<DaemonEvent>,
+) -> Result<Value, RpcError> {
+    // Cross-file slicing needs the full CPG — we short-circuit before I/O
+    // so callers can probe this without a real file on disk.
+    if req.cross_file {
+        let reason = "cross-file slicing needs the Code Property Graph (workstream C).";
+        let _ = ev_tx.send(DaemonEvent::CapabilityDegraded {
+            capability: "cpg".into(),
+            reason: reason.into(),
+        });
+        return Err(RpcError {
+            code: -32000,
+            message: format!("{reason} {}", joern::degraded_reason()),
+            data: Some(json!({"capability": "cpg"})),
+        });
+    }
+    // Intra-function slicing: pull the file bytes + detect language.
+    let abs = state.root.join(&req.origin.file);
+    let Ok(bytes) = std::fs::read(&abs) else {
+        return Err(RpcError::invalid_params(format!(
+            "file not found: {}",
+            req.origin.file
+        )));
+    };
+    let Some(lang) = Language::from_path(&req.origin.file) else {
+        return Err(RpcError::invalid_params(format!(
+            "unsupported language for {}",
+            req.origin.file
+        )));
+    };
+
+    match slice::compute(&req, &bytes, lang) {
+        slice::Outcome::Ok(s) => Ok(serde_json::to_value(s).expect("serialise slice")),
+        slice::Outcome::NeedsCpg(reason) => {
+            let _ = ev_tx.send(DaemonEvent::CapabilityDegraded {
+                capability: "cpg".into(),
+                reason: reason.into(),
+            });
+            Err(RpcError {
+                code: -32000,
+                message: format!("{reason} {}", joern::degraded_reason()),
+                data: Some(json!({"capability": "cpg"})),
+            })
+        }
+        slice::Outcome::NoEnclosingFunction => Err(RpcError {
+            code: -32000,
+            message: "no function encloses the cursor — slice requires an enclosing function"
+                .into(),
+            data: Some(json!({"capability": "cpg"})),
+        }),
     }
 }
 

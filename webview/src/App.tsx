@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import type { DaemonEvent, FromExtensionMessage, WorkspaceState } from "./types";
+import type { GroundedSummary } from "./types-summary";
 import { Treemap } from "./panels/Treemap";
 import { Diagnostics } from "./panels/Diagnostics";
 import { Summary } from "./panels/Summary";
-import { Slice } from "./panels/Slice";
+import { Slice, type SliceView } from "./panels/Slice";
 import { vs } from "./vscode";
 
 type Phase = "cold" | "indexing" | "ready" | "error";
@@ -16,6 +17,9 @@ export function App() {
     diagnostics: {},
     capabilities: {},
   });
+  const [summary, setSummary] = useState<GroundedSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [slice, setSlice] = useState<SliceView | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,6 +40,24 @@ export function App() {
         case "workspaceState":
           setState(msg.payload);
           setPhase("ready");
+          break;
+        case "rpcResult":
+          // Summary rides on id -1, slice on id -2 (see panel.ts).
+          if (msg.id === -1 && isSummaryShape(msg.result)) {
+            setSummary(msg.result as GroundedSummary);
+            setSummaryLoading(false);
+          } else if (msg.id === -2 && isSliceShape(msg.result)) {
+            setSlice(toSliceView(msg.result as SliceResultShape));
+          }
+          break;
+        case "rpcError":
+          if (msg.id === -1) {
+            setSummaryLoading(false);
+            setErrorMessage(`Summary: ${msg.error.message}`);
+          } else if (msg.id === -2) {
+            setSlice(null);
+            setErrorMessage(`Slice: ${msg.error.message}`);
+          }
           break;
       }
     };
@@ -80,6 +102,17 @@ export function App() {
     }
   }
 
+  function requestSummaryForWorstFunction() {
+    // Pick the highest-composite function-level score and summarize it.
+    const fnScores = state.scores.filter((s) => typeof s.target === "string");
+    const worst = [...fnScores].sort((a, b) => b.composite - a.composite)[0];
+    if (!worst || typeof worst.target !== "string") {
+      return;
+    }
+    setSummaryLoading(true);
+    vs().postMessage({ type: "summarize", symbol: worst.target });
+  }
+
   const diagnosticCount = Object.values(state.diagnostics).reduce((a, d) => a + d.length, 0);
   const anyDegraded = Object.values(state.capabilities).some((c) => !c.available);
   const degradedList = Object.entries(state.capabilities).filter(([, c]) => !c.available);
@@ -121,18 +154,62 @@ export function App() {
       </section>
 
       <section className="panel panel-summary" aria-label="Summary">
-        <header>Summary</header>
+        <header>
+          Summary
+          <button
+            className="summary-action"
+            onClick={requestSummaryForWorstFunction}
+            disabled={summaryLoading || state.scores.length === 0}
+          >
+            {summaryLoading ? "…" : summary ? "regenerate (worst function)" : "summarize worst"}
+          </button>
+        </header>
         <div className="panel-body">
-          <Summary summary={null} capabilities={state.capabilities} />
+          <Summary summary={summary} capabilities={state.capabilities} />
         </div>
       </section>
 
       <section className="panel panel-slice" aria-label="Slice">
         <header>Slice</header>
         <div className="panel-body">
-          <Slice capabilities={state.capabilities} />
+          <Slice slice={slice} capabilities={state.capabilities} />
         </div>
       </section>
     </div>
+  );
+}
+
+type SliceResultShape = {
+  request: { direction: "backward" | "forward" };
+  nodes: SliceView["nodes"];
+  edges: SliceView["edges"];
+  truncated: boolean;
+  elapsedMs: number;
+};
+
+function isSliceShape(v: unknown): v is SliceResultShape {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  return Array.isArray(o.nodes) && Array.isArray(o.edges) && typeof o.truncated === "boolean";
+}
+
+function toSliceView(r: SliceResultShape): SliceView {
+  return {
+    nodes: r.nodes,
+    edges: r.edges,
+    truncated: r.truncated,
+    elapsedMs: r.elapsedMs,
+    direction: r.request?.direction ?? "backward",
+  };
+}
+
+function isSummaryShape(v: unknown): v is GroundedSummary {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.symbol === "string" &&
+    typeof o.text === "string" &&
+    Array.isArray(o.claims) &&
+    Array.isArray(o.factsGiven)
   );
 }

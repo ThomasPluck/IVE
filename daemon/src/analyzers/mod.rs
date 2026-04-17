@@ -14,3 +14,4 @@ pub mod hallucination;
 pub mod joern;
 pub mod lsp;
 pub mod semgrep;
+pub mod slice;

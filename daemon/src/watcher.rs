@@ -114,6 +114,33 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
         vec![]
     };
 
+    // Workspace-wide tsc pass (workstream D). Runs only when a tsconfig
+    // is present — implicit project detection avoids the "tsc wants a
+    // tsconfig" footgun on random TS snippets.
+    let has_typescript = scanned_map.values().any(|sf| {
+        matches!(
+            sf.language,
+            crate::parser::Language::TypeScript | crate::parser::Language::Tsx
+        )
+    });
+    let tsc_diagnostics = if has_typescript {
+        match lsp::scan_typescript(&state.root) {
+            Some(diags) => {
+                info!(n = diags.len(), "tsc pass complete");
+                diags
+            }
+            None => {
+                let _ = tx.send(DaemonEvent::CapabilityDegraded {
+                    capability: "tsc".into(),
+                    reason: "tsc unavailable or no tsconfig.json in workspace".into(),
+                });
+                vec![]
+            }
+        }
+    } else {
+        vec![]
+    };
+
     let mut workspace = Workspace::default();
     workspace.lockfiles = lockfiles;
 
@@ -141,6 +168,14 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
         // Pyright diagnostics (Python only).
         diagnostics.extend(
             pyright_diagnostics
+                .iter()
+                .filter(|d| d.location.file == sf.relative_path)
+                .cloned(),
+        );
+
+        // tsc diagnostics (TypeScript/TSX only).
+        diagnostics.extend(
+            tsc_diagnostics
                 .iter()
                 .filter(|d| d.location.file == sf.relative_path)
                 .cloned(),
