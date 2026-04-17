@@ -1,0 +1,13 @@
+{
+  "id": "ts/parse_url",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls URL constructor" },
+    { "id": "f2", "kind": "return_type", "content": "returns URL" }
+  ],
+  "summary": "Constructs a URL from the input string using the URL constructor and returns the URL. Persists visited URLs to IndexedDB.",
+  "labels": [
+    { "sentence": "Constructs a URL from the input string using the URL constructor and returns the URL.", "entailed": true },
+    { "sentence": "Persists visited URLs to IndexedDB.", "entailed": false }
+  ]
+}

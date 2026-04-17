@@ -1,0 +1,14 @@
+{
+  "id": "ts/debounce",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls setTimeout" },
+    { "id": "f2", "kind": "call", "content": "calls clearTimeout" },
+    { "id": "f3", "kind": "signature", "content": "function debounce (12 LOC)" }
+  ],
+  "summary": "Returns a debounced wrapper that uses setTimeout and clearTimeout to coalesce calls within a given delay. Automatically scales the delay with CPU load.",
+  "labels": [
+    { "sentence": "Returns a debounced wrapper that uses setTimeout and clearTimeout to coalesce calls within a given delay.", "entailed": true },
+    { "sentence": "Automatically scales the delay with CPU load.", "entailed": false }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "py/list_files",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls pathlib Path iterdir" },
+    { "id": "f2", "kind": "return_type", "content": "returns list" }
+  ],
+  "summary": "Lists the directory entries via pathlib Path iterdir and returns them as a list. Sends a telemetry event for each file.",
+  "labels": [
+    { "sentence": "Lists the directory entries via pathlib Path iterdir and returns them as a list.", "entailed": true },
+    { "sentence": "Sends a telemetry event for each file.", "entailed": false }
+  ]
+}

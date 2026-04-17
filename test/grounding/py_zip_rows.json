@@ -1,0 +1,13 @@
+{
+  "id": "py/zip_rows",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls zip" },
+    { "id": "f2", "kind": "return_type", "content": "returns list of tuple" }
+  ],
+  "summary": "Pairs corresponding rows with zip and returns the result as a list of tuples. Under the hood, it uses gRPC streaming.",
+  "labels": [
+    { "sentence": "Pairs corresponding rows with zip and returns the result as a list of tuples.", "entailed": true },
+    { "sentence": "Under the hood, it uses gRPC streaming.", "entailed": false }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "py/render_template",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls jinja2 Environment get_template" },
+    { "id": "f2", "kind": "call", "content": "calls template render" }
+  ],
+  "summary": "Loads the template via jinja2 Environment get_template and returns the output of template render. The template is compiled to native machine code.",
+  "labels": [
+    { "sentence": "Loads the template via jinja2 Environment get_template and returns the output of template render.", "entailed": true },
+    { "sentence": "The template is compiled to native machine code.", "entailed": false }
+  ]
+}

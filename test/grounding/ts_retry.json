@@ -1,0 +1,14 @@
+{
+  "id": "ts/retry",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function retry (15 LOC)" },
+    { "id": "f2", "kind": "call", "content": "calls setTimeout" },
+    { "id": "f3", "kind": "raises", "content": "raises Error" }
+  ],
+  "summary": "Retries the given async operation with exponential backoff via setTimeout and raises Error after the final attempt. Records timing metrics to Datadog.",
+  "labels": [
+    { "sentence": "Retries the given async operation with exponential backoff via setTimeout and raises Error after the final attempt.", "entailed": true },
+    { "sentence": "Records timing metrics to Datadog.", "entailed": false }
+  ]
+}

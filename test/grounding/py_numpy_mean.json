@@ -1,0 +1,13 @@
+{
+  "id": "py/numpy_mean",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls numpy mean" },
+    { "id": "f2", "kind": "return_type", "content": "returns numpy ndarray" }
+  ],
+  "summary": "Computes the column-wise mean using numpy mean and returns a numpy ndarray. Also plots the result with matplotlib.",
+  "labels": [
+    { "sentence": "Computes the column-wise mean using numpy mean and returns a numpy ndarray.", "entailed": true },
+    { "sentence": "Also plots the result with matplotlib.", "entailed": false }
+  ]
+}

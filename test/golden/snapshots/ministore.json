@@ -1,0 +1,78 @@
+{
+  "files": [
+    {
+      "path": "app/__init__.py",
+      "loc": 1,
+      "functions": []
+    },
+    {
+      "path": "app/api.py",
+      "loc": 27,
+      "functions": [
+        {
+          "name": "fetch_external",
+          "cc": 7
+        },
+        {
+          "name": "health",
+          "cc": 0
+        },
+        {
+          "name": "list_products",
+          "cc": 0
+        }
+      ]
+    },
+    {
+      "path": "app/db.py",
+      "loc": 13,
+      "functions": [
+        {
+          "name": "insert_product",
+          "cc": 2
+        },
+        {
+          "name": "query_products",
+          "cc": 0
+        }
+      ]
+    },
+    {
+      "path": "web/client.ts",
+      "loc": 17,
+      "functions": [
+        {
+          "name": "loadCart",
+          "cc": 0
+        },
+        {
+          "name": "validate",
+          "cc": 0
+        }
+      ]
+    }
+  ],
+  "diagnostics": [],
+  "file_scores": [
+    {
+      "path": "app/__init__.py",
+      "bucket": "green",
+      "composite_hundredths": 0
+    },
+    {
+      "path": "app/api.py",
+      "bucket": "green",
+      "composite_hundredths": 5
+    },
+    {
+      "path": "app/db.py",
+      "bucket": "green",
+      "composite_hundredths": 2
+    },
+    {
+      "path": "web/client.ts",
+      "bucket": "green",
+      "composite_hundredths": 1
+    }
+  ]
+}

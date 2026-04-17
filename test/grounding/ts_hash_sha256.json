@@ -1,0 +1,16 @@
+{
+  "id": "ts/hash_sha256",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls crypto createHash" },
+    { "id": "f2", "kind": "call", "content": "calls hash update" },
+    { "id": "f3", "kind": "call", "content": "calls hash digest" },
+    { "id": "f4", "kind": "return_type", "content": "returns string" }
+  ],
+  "summary": "Builds a SHA-256 digest by calling crypto createHash, feeding bytes through hash update, and finalising with hash digest. Returns the hex string. The digest is also uploaded to a remote KMS.",
+  "labels": [
+    { "sentence": "Builds a SHA-256 digest by calling crypto createHash, feeding bytes through hash update, and finalising with hash digest.", "entailed": true },
+    { "sentence": "Returns the hex string.", "entailed": true },
+    { "sentence": "The digest is also uploaded to a remote KMS.", "entailed": false }
+  ]
+}

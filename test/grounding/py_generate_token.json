@@ -1,0 +1,13 @@
+{
+  "id": "py/generate_token",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls secrets token_urlsafe" },
+    { "id": "f2", "kind": "return_type", "content": "returns str" }
+  ],
+  "summary": "Generates a cryptographically-random URL-safe token with secrets token_urlsafe and returns the string. Additionally signs the token with RS256.",
+  "labels": [
+    { "sentence": "Generates a cryptographically-random URL-safe token with secrets token_urlsafe and returns the string.", "entailed": true },
+    { "sentence": "Additionally signs the token with RS256.", "entailed": false }
+  ]
+}

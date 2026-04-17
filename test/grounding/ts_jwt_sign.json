@@ -1,0 +1,14 @@
+{
+  "id": "ts/jwt_sign",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls jsonwebtoken sign" },
+    { "id": "f2", "kind": "return_type", "content": "returns string" },
+    { "id": "f3", "kind": "import", "content": "imports jsonwebtoken" }
+  ],
+  "summary": "Signs the JWT payload via jsonwebtoken sign with the provided secret and returns the string token. Automatically rotates the signing key every hour.",
+  "labels": [
+    { "sentence": "Signs the JWT payload via jsonwebtoken sign with the provided secret and returns the string token.", "entailed": true },
+    { "sentence": "Automatically rotates the signing key every hour.", "entailed": false }
+  ]
+}
