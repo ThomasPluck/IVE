@@ -4,10 +4,11 @@
 //! Supported lockfiles v1:
 //! - Python: `requirements.txt`, `pyproject.toml`, `poetry.lock`, `uv.lock`, `Pipfile.lock`
 //! - JavaScript/TypeScript: `package.json`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`
+//! - Rust (v1.1): `Cargo.toml`, `Cargo.lock`
 //!
 //! An import is considered hallucinated if its top-level module/package is
 //! absent from every applicable lockfile **and** not a stdlib name. Stdlib
-//! lists are embedded — see `PYTHON_STDLIB` and `NODE_BUILTINS`.
+//! lists are embedded — see `PYTHON_STDLIB`, `NODE_BUILTINS`, `RUST_STDLIB`.
 
 use crate::contracts::{Diagnostic, DiagnosticSource, Location, Range, Severity};
 use crate::parser::Language;
@@ -20,9 +21,11 @@ use std::path::{Path, PathBuf};
 pub struct LockfileIndex {
     pub python: HashSet<String>,
     pub js: HashSet<String>,
+    pub rust: HashSet<String>,
     /// `true` if we found at least one lockfile for that ecosystem.
     pub python_present: bool,
     pub js_present: bool,
+    pub rust_present: bool,
 }
 
 impl LockfileIndex {
@@ -37,6 +40,8 @@ impl LockfileIndex {
         read_package_lock(root, &mut idx);
         read_pnpm_lock(root, &mut idx);
         read_yarn_lock(root, &mut idx);
+        read_cargo_toml(root, &mut idx);
+        read_cargo_lock(root, &mut idx);
         idx
     }
 
@@ -47,6 +52,11 @@ impl LockfileIndex {
 
     pub fn js_has(&self, name: &str) -> bool {
         self.js.contains(name)
+    }
+
+    pub fn rust_has(&self, name: &str) -> bool {
+        let normalized = name.replace('-', "_");
+        self.rust.contains(&normalized) || self.rust.contains(name)
     }
 }
 
@@ -256,6 +266,62 @@ fn read_yarn_lock(root: &Path, idx: &mut LockfileIndex) {
     }
 }
 
+fn read_cargo_toml(root: &Path, idx: &mut LockfileIndex) {
+    let p = root.join("Cargo.toml");
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return;
+    };
+    idx.rust_present = true;
+    let value: toml::Value = match toml::from_str(&text) {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+    for section in ["dependencies", "dev-dependencies", "build-dependencies"] {
+        if let Some(tab) = value.get(section).and_then(|s| s.as_table()) {
+            for k in tab.keys() {
+                idx.rust.insert(k.replace('-', "_"));
+                idx.rust.insert(k.clone());
+            }
+        }
+    }
+    // workspace.dependencies (Cargo 1.64+)
+    if let Some(tab) = value
+        .get("workspace")
+        .and_then(|w| w.get("dependencies"))
+        .and_then(|d| d.as_table())
+    {
+        for k in tab.keys() {
+            idx.rust.insert(k.replace('-', "_"));
+            idx.rust.insert(k.clone());
+        }
+    }
+    // If the Cargo.toml declares [package] or [lib] name, that's a local crate.
+    for target in ["package", "lib"] {
+        if let Some(name) = value
+            .get(target)
+            .and_then(|t| t.get("name"))
+            .and_then(|n| n.as_str())
+        {
+            idx.rust.insert(name.replace('-', "_"));
+            idx.rust.insert(name.to_string());
+        }
+    }
+}
+
+fn read_cargo_lock(root: &Path, idx: &mut LockfileIndex) {
+    let p = root.join("Cargo.lock");
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return;
+    };
+    idx.rust_present = true;
+    let re = Regex::new(r#"(?m)^name\s*=\s*"([^"]+)""#).unwrap();
+    for cap in re.captures_iter(&text) {
+        let name = &cap[1];
+        idx.rust.insert(name.replace('-', "_"));
+        idx.rust.insert(name.to_string());
+    }
+}
+
 pub fn find_lockfiles(root: &Path) -> Vec<PathBuf> {
     let candidates = [
         "requirements.txt",
@@ -267,12 +333,21 @@ pub fn find_lockfiles(root: &Path) -> Vec<PathBuf> {
         "package-lock.json",
         "pnpm-lock.yaml",
         "yarn.lock",
+        "Cargo.toml",
+        "Cargo.lock",
     ];
     candidates
         .iter()
         .map(|n| root.join(n))
         .filter(|p| p.exists())
         .collect()
+}
+
+fn is_rust_stdlib_or_keyword(module: &str) -> bool {
+    matches!(
+        module,
+        "std" | "core" | "alloc" | "test" | "proc_macro" | "crate" | "self" | "super"
+    )
 }
 
 pub fn check_file(
@@ -298,6 +373,13 @@ pub fn check_file(
                     && !idx.js_has(&top_js_package(&imp.module)),
                 "js",
             ),
+            Language::Rust => (
+                idx.rust_present
+                    && !is_rust_stdlib_or_keyword(&imp.module)
+                    && !idx.rust_has(&imp.module)
+                    && !local_modules.rust_has(&imp.module),
+                "rust",
+            ),
         };
         if is_hallucinated {
             out.push(make_diagnostic(&file.relative_path, imp, &file.language));
@@ -312,12 +394,20 @@ pub fn check_file(
 #[derive(Debug, Default, Clone)]
 pub struct LocalModules {
     pub python: HashSet<String>,
+    pub rust: HashSet<String>,
 }
 
 impl LocalModules {
     pub fn python_has(&self, module: &str) -> bool {
         let head = module.split('.').next().unwrap_or(module);
         self.python.contains(head)
+    }
+
+    pub fn rust_has(&self, module: &str) -> bool {
+        // `use foo::bar` → head is `foo`. If there's a `foo.rs` or `foo/mod.rs`
+        // in-tree (or `src/foo.rs`), treat it as workspace-local.
+        let head = module.split("::").next().unwrap_or(module);
+        self.rust.contains(head)
     }
 
     pub fn from_workspace(root: &Path) -> Self {
@@ -347,6 +437,21 @@ impl LocalModules {
                 let head = &rel_str[..first_slash];
                 if rel_str.ends_with(".py") && !head.is_empty() {
                     out.python.insert(head.to_string());
+                }
+            }
+            // Rust module roots
+            if rel_str.ends_with(".rs") {
+                // `src/foo.rs` or `src/foo/mod.rs` → module `foo`
+                // `foo.rs` at root → module `foo`
+                let stripped = rel_str.strip_prefix("src/").unwrap_or(&rel_str);
+                if stripped.ends_with("/mod.rs") {
+                    if let Some(pkg) = stripped.strip_suffix("/mod.rs") {
+                        let head = pkg.split('/').next().unwrap_or(pkg);
+                        out.rust.insert(head.to_string());
+                    }
+                } else if !stripped.contains('/') {
+                    out.rust
+                        .insert(stripped.trim_end_matches(".rs").to_string());
                 }
             }
         }
@@ -411,6 +516,7 @@ fn make_diagnostic(file: &str, imp: &ImportEntry, lang: &Language) -> Diagnostic
     let lockfile_hint = match lang {
         Language::Python => "requirements.txt / pyproject.toml",
         Language::TypeScript | Language::Tsx => "package.json",
+        Language::Rust => "Cargo.toml",
     };
     let msg = format!("no package '{}' in {lockfile_hint}", imp.module);
     let id = format!(

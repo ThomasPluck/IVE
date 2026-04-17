@@ -160,3 +160,41 @@ async fn crossfile_fixture_flags_arity_mismatch_and_ignores_defaults() {
         "log_event() has a default arg; single-arg call must not trigger"
     );
 }
+
+#[tokio::test]
+async fn rust_fixture_flags_hallucinated_crate_and_recognises_std_and_declared_deps() {
+    let dir = isolate(&repo_root().join("test/fixtures/ai-slop/rust"));
+    let state = scan(dir).await;
+    let w = state.workspace.read().await;
+    let diags = w
+        .diagnostics
+        .get("src/main.rs")
+        .expect("src/main.rs indexed");
+    let messages: Vec<&String> = diags.iter().map(|d| &d.message).collect();
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == "ive-hallucination/unknown-import"
+                && d.message.contains("imaginary_crate")),
+        "expected hallucinated-crate diagnostic for imaginary_crate; got: {:?}",
+        messages
+    );
+    assert!(
+        !diags
+            .iter()
+            .any(|d| d.code == "ive-hallucination/unknown-import" && d.message.contains("std")),
+        "std is a stdlib root and must not flag"
+    );
+    assert!(
+        !diags
+            .iter()
+            .any(|d| d.code == "ive-hallucination/unknown-import" && d.message.contains("serde")),
+        "serde is declared in Cargo.toml and must not flag"
+    );
+    let functions: Vec<&String> = w.function_scores.keys().collect();
+    assert!(
+        functions.iter().any(|s| s.ends_with("compute#.")),
+        "compute() must appear as a Rust FunctionUnit; got keys: {:?}",
+        functions
+    );
+}

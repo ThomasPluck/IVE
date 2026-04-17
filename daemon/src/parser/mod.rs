@@ -7,6 +7,7 @@
 
 pub mod complexity;
 pub mod python;
+pub mod rust;
 pub mod typescript;
 
 use crate::contracts::{Location, Range, SymbolId};
@@ -17,6 +18,7 @@ pub enum Language {
     Python,
     TypeScript,
     Tsx,
+    Rust,
 }
 
 impl Language {
@@ -28,6 +30,8 @@ impl Language {
             Some(Self::Tsx)
         } else if lower.ends_with(".ts") || lower.ends_with(".mts") || lower.ends_with(".cts") {
             Some(Self::TypeScript)
+        } else if lower.ends_with(".rs") {
+            Some(Self::Rust)
         } else {
             None
         }
@@ -38,6 +42,7 @@ impl Language {
             Self::Python => tree_sitter_python::LANGUAGE.into(),
             Self::TypeScript => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
             Self::Tsx => tree_sitter_typescript::LANGUAGE_TSX.into(),
+            Self::Rust => tree_sitter_rust::LANGUAGE.into(),
         }
     }
 }
@@ -93,6 +98,7 @@ pub fn extract_functions(
         Language::TypeScript | Language::Tsx => {
             typescript::walk(tree.root_node(), source, file, &mut out)
         }
+        Language::Rust => rust::walk(tree.root_node(), source, file, &mut out),
     }
     Ok(out)
 }
@@ -106,6 +112,7 @@ mod tests {
         assert_eq!(Language::from_path("foo.py"), Some(Language::Python));
         assert_eq!(Language::from_path("foo.ts"), Some(Language::TypeScript));
         assert_eq!(Language::from_path("Foo.TSX"), Some(Language::Tsx));
+        assert_eq!(Language::from_path("src/main.rs"), Some(Language::Rust));
         assert_eq!(Language::from_path("foo.go"), None);
     }
 }

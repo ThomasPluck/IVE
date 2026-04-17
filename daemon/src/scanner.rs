@@ -78,6 +78,14 @@ pub fn scan_file(root: &Path, path: &Path) -> anyhow::Result<Option<ScannedFile>
                 })
                 .collect()
         }
+        Language::Rust => parser::rust::extract_uses(&bytes)
+            .into_iter()
+            .map(|u| ImportEntry {
+                module: u.crate_name,
+                range_start: u.range.0,
+                range_end: u.range.1,
+            })
+            .collect(),
     };
     let loc = bytes.iter().filter(|b| **b == b'\n').count() as u32 + 1;
     let location = Location {

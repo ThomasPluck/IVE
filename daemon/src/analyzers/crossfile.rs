@@ -92,6 +92,11 @@ fn walk_defs(lang: Language, node: Node, source: &[u8], file: &str, idx: &mut De
     match lang {
         Language::Python => walk_py_defs(node, source, file, idx),
         Language::TypeScript | Language::Tsx => walk_ts_defs(node, source, file, idx),
+        Language::Rust => {
+            // Cross-file arity for Rust defers to workstream D (rust-analyzer)
+            // — the surface-level arity check here can't see method receiver
+            // or generic-bound differences cleanly. No-op for now.
+        }
     }
 }
 
@@ -280,6 +285,7 @@ pub fn collect_callsites(lang: Language, file: &str, source: &[u8], out: &mut Ve
         let call_kind = match lang {
             Language::Python => "call",
             Language::TypeScript | Language::Tsx => "call_expression",
+            Language::Rust => "call_expression",
         };
         if n.kind() == call_kind {
             if let Some(site) = callsite_from_node(lang, n, source, file) {
@@ -309,6 +315,10 @@ fn callsite_from_node(lang: Language, n: Node, source: &[u8], file: &str) -> Opt
                 return None;
             }
             raw.to_string()
+        }
+        Language::Rust => {
+            // Rust cross-file arity is disabled for v1.1 (see walk_defs).
+            return None;
         }
     };
     let args = n.child_by_field_name("arguments")?;

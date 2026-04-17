@@ -19,6 +19,7 @@ use tree_sitter::Node;
 pub enum Dialect {
     Python,
     TypeScript,
+    Rust,
 }
 
 struct Kinds {
@@ -74,6 +75,27 @@ impl Kinds {
                 ],
                 else_like: &["else_clause"],
                 abrupt_jump: &["break_statement", "continue_statement", "throw_statement"],
+            },
+            Dialect::Rust => Self {
+                flow: &[
+                    "if_expression",
+                    "for_expression",
+                    "while_expression",
+                    "loop_expression",
+                    "match_expression",
+                    "match_arm",
+                    "match_pattern",
+                ],
+                boolean_binary: &["binary_expression"],
+                function_like: &["function_item", "closure_expression"],
+                // Rust `else` is part of the `if_expression` — tree-sitter exposes
+                // it as `else_clause`.
+                else_like: &["else_clause"],
+                abrupt_jump: &[
+                    "break_expression",
+                    "continue_expression",
+                    "return_expression",
+                ],
             },
         }
     }
