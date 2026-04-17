@@ -64,3 +64,25 @@ async fn typescript_hallucinated_fixture_flags_imaginary_and_allows_node_fs_prom
         "node:fs/promises must be recognised as a builtin"
     );
 }
+
+#[tokio::test]
+async fn crossfile_fixture_flags_arity_mismatch_and_ignores_defaults() {
+    let dir = repo_root().join("test/fixtures/ai-slop/crossfile");
+    let state = scan(dir).await;
+    let w = state.workspace.read().await;
+    let diags = w.diagnostics.get("main.py").expect("main.py indexed");
+    let messages: Vec<&String> = diags.iter().map(|d| &d.message).collect();
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == "ive-crossfile/arity-mismatch" && d.message.contains("compute()")),
+        "expected arity mismatch on compute(), got: {:?}",
+        messages
+    );
+    assert!(
+        !diags
+            .iter()
+            .any(|d| d.code == "ive-crossfile/arity-mismatch" && d.message.contains("log_event()")),
+        "log_event() has a default arg; single-arg call must not trigger"
+    );
+}

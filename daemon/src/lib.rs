@@ -11,6 +11,7 @@ pub mod cache;
 pub mod config;
 pub mod contracts;
 pub mod events;
+pub mod git;
 pub mod health;
 pub mod parser;
 pub mod rpc;

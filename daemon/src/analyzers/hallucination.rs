@@ -275,7 +275,11 @@ pub fn find_lockfiles(root: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
-pub fn check_file(file: &ScannedFile, idx: &LockfileIndex) -> Vec<Diagnostic> {
+pub fn check_file(
+    file: &ScannedFile,
+    idx: &LockfileIndex,
+    local_modules: &LocalModules,
+) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for imp in &file.imports {
         let (is_hallucinated, _ecosystem) = match file.language {
@@ -283,7 +287,8 @@ pub fn check_file(file: &ScannedFile, idx: &LockfileIndex) -> Vec<Diagnostic> {
                 idx.python_present
                     && !PYTHON_STDLIB.contains(&imp.module.as_str())
                     && !idx.python_has(&imp.module)
-                    && !is_relative_python(&imp.module),
+                    && !is_relative_python(&imp.module)
+                    && !local_modules.python_has(&imp.module),
                 "python",
             ),
             Language::TypeScript | Language::Tsx => (
@@ -299,6 +304,77 @@ pub fn check_file(file: &ScannedFile, idx: &LockfileIndex) -> Vec<Diagnostic> {
         }
     }
     out
+}
+
+/// Workspace-local module names. Pre-computed once per scan so we don't
+/// re-walk the filesystem per-import. Only Python currently needs this;
+/// JS/TS local imports already go through `is_relative_js`.
+#[derive(Debug, Default, Clone)]
+pub struct LocalModules {
+    pub python: HashSet<String>,
+}
+
+impl LocalModules {
+    pub fn python_has(&self, module: &str) -> bool {
+        let head = module.split('.').next().unwrap_or(module);
+        self.python.contains(head)
+    }
+
+    pub fn from_workspace(root: &Path) -> Self {
+        let mut out = Self::default();
+        for entry in walkdir_light(root) {
+            let rel = match entry.strip_prefix(root) {
+                Ok(r) => r.to_path_buf(),
+                Err(_) => continue,
+            };
+            let rel_str = rel.to_string_lossy().replace('\\', "/");
+            // top-level `foo.py` → module `foo`
+            if rel_str.ends_with(".py") && !rel_str.contains('/') {
+                out.python
+                    .insert(rel_str.trim_end_matches(".py").to_string());
+                continue;
+            }
+            // package init: `foo/__init__.py` → module `foo`
+            if rel_str.ends_with("/__init__.py") {
+                if let Some(pkg) = rel_str.strip_suffix("/__init__.py") {
+                    // only add the top-level package segment
+                    let head = pkg.split('/').next().unwrap_or(pkg);
+                    out.python.insert(head.to_string());
+                }
+            }
+            // top-level package dir containing any .py → `foo`
+            if let Some(first_slash) = rel_str.find('/') {
+                let head = &rel_str[..first_slash];
+                if rel_str.ends_with(".py") && !head.is_empty() {
+                    out.python.insert(head.to_string());
+                }
+            }
+        }
+        out
+    }
+}
+
+fn walkdir_light(root: &Path) -> impl Iterator<Item = PathBuf> {
+    use ignore::WalkBuilder;
+    WalkBuilder::new(root)
+        .hidden(false)
+        .git_ignore(true)
+        .git_exclude(true)
+        .git_global(true)
+        .require_git(false)
+        .filter_entry(|e| {
+            let n = e.file_name().to_string_lossy();
+            n != ".ive" && n != "node_modules" && n != "target" && n != ".git"
+        })
+        .build()
+        .filter_map(Result::ok)
+        .filter_map(|e| {
+            if e.file_type().map(|t| t.is_file()).unwrap_or(false) {
+                Some(e.into_path())
+            } else {
+                None
+            }
+        })
 }
 
 fn is_node_builtin(module: &str) -> bool {
@@ -633,7 +709,8 @@ mod tests {
                 },
             },
         };
-        let diags = check_file(&sf, &idx);
+        let local = LocalModules::default();
+        let diags = check_file(&sf, &idx, &local);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, "ive-hallucination/unknown-import");
         assert_eq!(diags[0].severity, Severity::Critical);
@@ -665,7 +742,43 @@ mod tests {
                 },
             },
         };
-        assert!(check_file(&sf, &idx).is_empty());
+        let local = LocalModules::default();
+        assert!(check_file(&sf, &idx, &local).is_empty());
+        std::fs::remove_dir_all(d).ok();
+    }
+
+    #[test]
+    fn local_python_module_does_not_flag() {
+        let d = tmpdir();
+        std::fs::write(d.join("requirements.txt"), "").unwrap();
+        std::fs::write(d.join("lib.py"), "def f(): pass\n").unwrap();
+        let idx = LockfileIndex::from_workspace(&d);
+        let local = LocalModules::from_workspace(&d);
+        assert!(local.python_has("lib"));
+        let sf = ScannedFile {
+            relative_path: "main.py".into(),
+            language: Language::Python,
+            loc: 1,
+            functions: vec![],
+            imports: vec![ImportEntry {
+                module: "lib".into(),
+                range_start: [0, 0],
+                range_end: [0, 10],
+            }],
+            blob_sha: "x".into(),
+            bytes_read: 0,
+            location: Location {
+                file: "main.py".into(),
+                range: Range {
+                    start: [0, 0],
+                    end: [0, 0],
+                },
+            },
+        };
+        assert!(
+            check_file(&sf, &idx, &local).is_empty(),
+            "workspace-local module 'lib' must not trigger hallucination"
+        );
         std::fs::remove_dir_all(d).ok();
     }
 

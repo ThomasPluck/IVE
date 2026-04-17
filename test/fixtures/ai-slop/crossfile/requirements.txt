@@ -1,0 +1,2 @@
+# empty — lockfile presence signals Python ecosystem for the hallucination
+# check without introducing any dependency noise.

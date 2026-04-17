@@ -2,19 +2,57 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "type": "npm",
-      "script": "build",
+      "label": "build:daemon",
+      "type": "shell",
+      "command": "cargo build --release",
       "group": "build",
-      "label": "npm: build",
-      "problemMatcher": ["$tsc"]
+      "problemMatcher": ["$rustc"]
     },
     {
-      "type": "npm",
-      "script": "watch",
-      "isBackground": true,
+      "label": "build:webview",
+      "type": "shell",
+      "command": "npm run build",
+      "options": { "cwd": "${workspaceFolder}/webview" },
       "group": "build",
-      "label": "npm: watch",
-      "problemMatcher": ["$tsc-watch"]
+      "problemMatcher": []
+    },
+    {
+      "label": "build:extension",
+      "type": "shell",
+      "command": "node esbuild.mjs",
+      "options": { "cwd": "${workspaceFolder}/extension" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "build:all",
+      "dependsOrder": "sequence",
+      "dependsOn": ["build:daemon", "build:webview", "build:extension"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "watch:webview",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": { "cwd": "${workspaceFolder}/webview" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "watch:extension",
+      "type": "shell",
+      "command": "node esbuild.mjs --watch",
+      "options": { "cwd": "${workspaceFolder}/extension" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "test:all",
+      "type": "shell",
+      "command": "cargo test --release && cd webview && npx vitest run && cd ../extension && npx vitest run",
+      "group": "test",
+      "problemMatcher": []
     }
   ]
 }

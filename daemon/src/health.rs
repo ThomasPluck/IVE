@@ -98,6 +98,7 @@ pub fn score_file(
     function_scores: &[HealthScore],
     file_diagnostic_count: u32,
     hallucinated_imports: u32,
+    error_or_critical_count: u32,
 ) -> HealthScore {
     let (cc_sum, cc_n, fan_in_sum, fan_out_sum, cc_weight_sum, raw_cc_sum) =
         function_scores.iter().zip(file.functions.iter()).fold(
@@ -134,15 +135,22 @@ pub fn score_file(
     };
 
     // Canonical composite: LOC-weighted mean of function composites, blended
-    // with the file-level AI signal. Then apply a severity floor: any
-    // hallucinated import → at least yellow (0.4); two or more → red (0.6).
+    // with the file-level AI signal. Then apply a severity floor:
+    // - any hallucinated import → at least yellow (0.4)
+    // - two or more hallucinated imports → red (0.6)
+    // - any error/critical diagnostic → at least 0.3 (yellow boundary)
     let blended = if cc_n == 0 {
         clamp01(0.7 * ai_signal.value + 0.3 * clamp01(file.loc as f32 / 500.0))
     } else {
         clamp01(0.7 * mean_composite + 0.3 * ai_signal.value)
     };
-    let severity_floor = clamp01(0.4 * hallucinated_imports as f32);
-    let composite = blended.max(severity_floor);
+    let hall_floor = clamp01(0.4 * hallucinated_imports as f32);
+    let err_floor = if error_or_critical_count > 0 {
+        0.3
+    } else {
+        0.0
+    };
+    let composite = blended.max(hall_floor).max(err_floor);
 
     HealthScore {
         target: HealthTarget::File {
@@ -289,7 +297,7 @@ mod tests {
             0,
             false,
         )];
-        let score = score_file(&file, &HealthWeights::default(), &fn_scores, 1, 1);
+        let score = score_file(&file, &HealthWeights::default(), &fn_scores, 1, 1, 1);
         assert!(
             matches!(score.bucket, HealthBucket::Yellow | HealthBucket::Red),
             "one hallucinated import must push a file to at least yellow: got {:?} at {}",

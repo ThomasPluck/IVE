@@ -5,9 +5,11 @@
 //! For cold scans and manual rescan we simply iterate — the watcher is only
 //! about delta updates.
 
-use crate::analyzers::hallucination;
+use crate::analyzers::{crossfile, hallucination};
+use crate::cache::DiskCache;
 use crate::contracts::{DaemonEvent, Diagnostic};
 use crate::events::EventTx;
+use crate::git;
 use crate::health::{self, score_file};
 use crate::scanner::{self, ScannedFile};
 use crate::state::{SharedState, Workspace};
@@ -18,6 +20,20 @@ use tracing::{debug, info};
 
 pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Result<()> {
     let started = Instant::now();
+
+    // Hydrate the blob index from disk so first-scan-after-restart can count
+    // cache hits on unchanged files.
+    let disk_cache = DiskCache::new(&state.root, env!("CARGO_PKG_VERSION"));
+    let mut manifest = disk_cache.load_manifest();
+    {
+        let snap = manifest
+            .blobs
+            .iter()
+            .map(|(p, sha)| (state.root.join(p), sha.clone()))
+            .collect();
+        state.blobs.load_snapshot(snap);
+    }
+
     let paths: Vec<_> = scanner::walk_workspace(&state.root).collect();
     let total = paths.len() as u32;
     let _ = tx.send(DaemonEvent::IndexProgress {
@@ -51,6 +67,9 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
     }
 
     let fan_in = health::build_fan_in(&scanned_map);
+    let def_index = crossfile::build_def_index(&state.root, &scanned_map);
+    let local_modules = hallucination::LocalModules::from_workspace(&state.root);
+    let churn = git::collect_churn(&state.root, 14);
 
     let mut workspace = Workspace::default();
     workspace.lockfiles = lockfiles;
@@ -58,26 +77,49 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
     let mut file_scores = Vec::new();
 
     for (_path, sf) in &scanned_map {
-        let diagnostics = hallucination::check_file(sf, &workspace.lockfiles);
+        let mut diagnostics = hallucination::check_file(sf, &workspace.lockfiles, &local_modules);
         let hallucinated = diagnostics.len() as u32;
 
+        // Cross-file arity: only runs when we can re-read the file quickly.
+        if let Ok(bytes) = std::fs::read(state.root.join(&sf.relative_path)) {
+            diagnostics.extend(crossfile::check(sf, &bytes, &def_index));
+        }
+
+        let file_churn = churn.get(&sf.relative_path).copied().unwrap_or(0);
         let mut fn_scores = Vec::with_capacity(sf.functions.len());
         for func in &sf.functions {
             let fi = fan_in.get(&func.symbol_id).copied().unwrap_or(0);
-            let score =
-                health::score_function(func, &state.config.health, fi, 0, hallucinated, 0, false);
+            let score = health::score_function(
+                func,
+                &state.config.health,
+                fi,
+                0,
+                hallucinated,
+                file_churn,
+                false,
+            );
             workspace
                 .function_scores
                 .insert(func.symbol_id.clone(), score.clone());
             fn_scores.push(score);
         }
 
+        let err_count = diagnostics
+            .iter()
+            .filter(|d| {
+                matches!(
+                    d.severity,
+                    crate::contracts::Severity::Error | crate::contracts::Severity::Critical
+                )
+            })
+            .count() as u32;
         let file_score = score_file(
             sf,
             &state.config.health,
             &fn_scores,
             diagnostics.len() as u32,
             hallucinated,
+            err_count,
         );
         workspace
             .file_scores
@@ -108,6 +150,22 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
         scores: file_scores,
     });
 
+    // Persist the blob index so the next startup can count hits.
+    manifest.blobs = state
+        .blobs
+        .snapshot()
+        .into_iter()
+        .filter_map(|(abs, sha)| {
+            abs.strip_prefix(&state.root)
+                .ok()
+                .map(|rel| (rel.to_string_lossy().replace('\\', "/"), sha))
+        })
+        .collect();
+    disk_cache.prune(&mut manifest);
+    if let Err(e) = disk_cache.save_manifest(&manifest) {
+        debug!(error = %e, "failed to persist cache manifest");
+    }
+
     info!(
         elapsed_ms = started.elapsed().as_millis() as u64,
         files = total,
@@ -131,9 +189,10 @@ pub async fn rescan_one(
     let Some(sf) = scanner::scan_file(&state.root, &path)? else {
         return Ok(vec![]);
     };
+    let local_modules = hallucination::LocalModules::from_workspace(&state.root);
     let diagnostics = {
         let w = state.workspace.read().await;
-        hallucination::check_file(&sf, &w.lockfiles)
+        hallucination::check_file(&sf, &w.lockfiles, &local_modules)
     };
     debug!(?rel, n = diagnostics.len(), "single-file rescan");
 
