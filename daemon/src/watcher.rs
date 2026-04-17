@@ -179,6 +179,78 @@ fn path_bytes(p: &Path) -> Vec<u8> {
     std::fs::read(p).unwrap_or_default()
 }
 
+/// Spawn a background task that watches `state.root` for file changes and
+/// triggers `rescan_one` after a short debounce. Dropping the returned
+/// handle (via `std::mem::drop`) terminates the watcher.
+pub fn spawn(state: SharedState, tx: EventTx) -> anyhow::Result<WatchHandle> {
+    use notify::{EventKind, RecursiveMode};
+    use notify_debouncer_full::{new_debouncer, DebouncedEvent};
+
+    let root = state.root.clone();
+    let (raw_tx, raw_rx) =
+        std::sync::mpsc::channel::<Result<Vec<DebouncedEvent>, Vec<notify::Error>>>();
+    let mut debouncer = new_debouncer(std::time::Duration::from_millis(150), None, move |res| {
+        let _ = raw_tx.send(res);
+    })?;
+    debouncer.watch(&root, RecursiveMode::Recursive)?;
+
+    // Move the raw receiver into a blocking thread (notify-debouncer-full
+    // uses std::sync::mpsc, not an async channel) and forward relevant events
+    // onto a tokio channel.
+    let (async_tx, mut async_rx) = tokio::sync::mpsc::unbounded_channel::<std::path::PathBuf>();
+    let root_for_thread = state.root.clone();
+    std::thread::spawn(move || {
+        while let Ok(res) = raw_rx.recv() {
+            let Ok(events) = res else { continue };
+            for evt in events {
+                if !matches!(
+                    evt.kind,
+                    EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
+                ) {
+                    continue;
+                }
+                for path in &evt.paths {
+                    if let Ok(rel) = path.strip_prefix(&root_for_thread) {
+                        let s = rel.to_string_lossy();
+                        if s.starts_with(".ive")
+                            || s.contains("/.git/")
+                            || s.contains("node_modules")
+                        {
+                            continue;
+                        }
+                        let _ = async_tx.send(path.clone());
+                    }
+                }
+            }
+        }
+    });
+
+    let worker = tokio::spawn(async move {
+        while let Some(path) = async_rx.recv().await {
+            let rel = match path.strip_prefix(&state.root) {
+                Ok(p) => p.to_string_lossy().replace('\\', "/"),
+                Err(_) => continue,
+            };
+            if crate::parser::Language::from_path(&rel).is_none() {
+                continue;
+            }
+            if let Err(e) = rescan_one(&state, &tx, &rel).await {
+                tracing::debug!(error = %e, rel = %rel, "incremental rescan failed");
+            }
+        }
+    });
+
+    Ok(WatchHandle {
+        _debouncer: Box::new(debouncer),
+        _worker: worker,
+    })
+}
+
+pub struct WatchHandle {
+    _debouncer: Box<dyn std::any::Any + Send>,
+    _worker: tokio::task::JoinHandle<()>,
+}
+
 #[allow(dead_code)]
 pub async fn rescan_one(
     state: &SharedState,

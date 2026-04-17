@@ -115,6 +115,16 @@ pub async fn serve_stdio(state: SharedState) -> anyhow::Result<()> {
         }
     });
 
+    // Background debounced file watcher. We hold the handle for the
+    // lifetime of `serve_stdio` — drop ends the watcher cleanly.
+    let _watch_handle = match watcher::spawn(Arc::clone(&state), ev_tx.clone()) {
+        Ok(h) => Some(h),
+        Err(e) => {
+            tracing::warn!(error = %e, "file watcher unavailable — steady-state deltas disabled");
+            None
+        }
+    };
+
     let mut reader = BufReader::new(stdin).lines();
 
     while let Some(line) = reader.next_line().await? {
@@ -237,18 +247,30 @@ pub async fn dispatch_method(
         "summary.generate" => {
             let params: SummaryRequest = serde_json::from_value(req.params.clone())
                 .map_err(|e| RpcError::invalid_params(format!("{e}")))?;
-            let w = state.workspace.read().await;
-            for file in w.files.values() {
-                if let Some(unit) = file.functions.iter().find(|f| f.symbol_id == params.symbol) {
-                    return Ok(
-                        serde_json::to_value(grounding::offline_summary(file, unit)).unwrap()
-                    );
+            // Clone the pieces we need so we can drop the read lock before
+            // a potentially blocking LLM call.
+            let pair = {
+                let w = state.workspace.read().await;
+                w.files.values().find_map(|file| {
+                    file.functions
+                        .iter()
+                        .find(|f| f.symbol_id == params.symbol)
+                        .map(|unit| (file.clone(), unit.clone()))
+                })
+            };
+            match pair {
+                Some((file, unit)) => {
+                    let summary =
+                        tokio::task::spawn_blocking(move || grounding::summarize(&file, &unit))
+                            .await
+                            .map_err(|e| RpcError::internal(format!("summary task: {e}")))?;
+                    Ok(serde_json::to_value(summary).unwrap())
                 }
+                None => Err(RpcError::invalid_params(format!(
+                    "symbol not found: {}",
+                    params.symbol
+                ))),
             }
-            Err(RpcError::invalid_params(format!(
-                "symbol not found: {}",
-                params.symbol
-            )))
         }
         "symbol.definition" => {
             let params: LocationRequest = serde_json::from_value(req.params.clone())

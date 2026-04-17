@@ -3,6 +3,8 @@ import { Daemon, findDaemonBinary } from "./daemon";
 import { IvePanel } from "./panel";
 import { DiagnosticBridge } from "./diagnostics";
 import { registerCommands } from "./commands";
+import { HealthCodeLensProvider, buildDecorations } from "./codelens";
+import type { HealthScore } from "./contracts";
 import * as log from "./logger";
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -67,6 +69,37 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   });
 
   registerCommands(context, { daemon, panel });
+
+  const codeLens = new HealthCodeLensProvider(daemon);
+  context.subscriptions.push(
+    vscode.languages.registerCodeLensProvider(
+      [
+        { language: "python", scheme: "file" },
+        { language: "typescript", scheme: "file" },
+        { language: "typescriptreact", scheme: "file" },
+      ],
+      codeLens,
+    ),
+  );
+
+  const latestScores: { value: HealthScore[] } = { value: [] };
+  const refreshEditorDecorations = () => {
+    for (const editor of vscode.window.visibleTextEditors) {
+      buildDecorations(editor, latestScores.value);
+    }
+  };
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(refreshEditorDecorations),
+    vscode.window.onDidChangeVisibleTextEditors(refreshEditorDecorations),
+  );
+
+  daemon.on("event", (event) => {
+    if (event.type === "healthUpdated") {
+      latestScores.value = event.scores;
+      codeLens.refresh();
+      refreshEditorDecorations();
+    }
+  });
 
   panel.post({ type: "status", payload: { phase: "cold" } });
   daemon.start();
