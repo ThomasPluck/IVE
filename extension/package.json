@@ -67,6 +67,26 @@
           "default": "",
           "description": "Absolute path to the ive-daemon binary. Empty = auto-detect."
         },
+        "ive.daemon.autoDownload": {
+          "type": "boolean",
+          "default": true,
+          "description": "Download the analyzer pack from GitHub Releases on first run when the daemon binary is absent."
+        },
+        "ive.daemon.packVersion": {
+          "type": "string",
+          "default": "",
+          "description": "Pack release tag to download (e.g. 'v0.1.0'). Empty = match the extension version."
+        },
+        "ive.daemon.repo": {
+          "type": "string",
+          "default": "ThomasPluck/IVE",
+          "description": "GitHub repo (owner/name) hosting the analyzer-pack releases."
+        },
+        "ive.daemon.packSha256": {
+          "type": "string",
+          "default": "",
+          "description": "Expected SHA-256 of the downloaded archive. Empty = skip verification."
+        },
         "ive.logLevel": {
           "type": "string",
           "default": "info",

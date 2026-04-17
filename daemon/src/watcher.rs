@@ -5,7 +5,7 @@
 //! For cold scans and manual rescan we simply iterate — the watcher is only
 //! about delta updates.
 
-use crate::analyzers::{binding, crossfile, hallucination, semgrep};
+use crate::analyzers::{binding, crossfile, hallucination, lsp, semgrep};
 use crate::cache::DiskCache;
 use crate::contracts::{DaemonEvent, Diagnostic};
 use crate::events::EventTx;
@@ -91,6 +91,29 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
         vec![]
     };
 
+    // Workspace-wide Pyright pass (workstream D). Only costs us a
+    // subprocess when .py files exist; for non-Python workspaces we skip.
+    let has_python = scanned_map
+        .values()
+        .any(|sf| matches!(sf.language, crate::parser::Language::Python));
+    let pyright_diagnostics = if has_python {
+        match lsp::scan_workspace(&state.root) {
+            Some(diags) => {
+                info!(n = diags.len(), "pyright pass complete");
+                diags
+            }
+            None => {
+                let _ = tx.send(DaemonEvent::CapabilityDegraded {
+                    capability: "pyright".into(),
+                    reason: lsp::degraded_reason().into(),
+                });
+                vec![]
+            }
+        }
+    } else {
+        vec![]
+    };
+
     let mut workspace = Workspace::default();
     workspace.lockfiles = lockfiles;
 
@@ -110,6 +133,14 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
         // Semgrep diagnostics for this file, filtered from the workspace run.
         diagnostics.extend(
             semgrep_diagnostics
+                .iter()
+                .filter(|d| d.location.file == sf.relative_path)
+                .cloned(),
+        );
+
+        // Pyright diagnostics (Python only).
+        diagnostics.extend(
+            pyright_diagnostics
                 .iter()
                 .filter(|d| d.location.file == sf.relative_path)
                 .cloned(),

@@ -1,9 +1,10 @@
 import * as vscode from "vscode";
-import { Daemon, findDaemonBinary } from "./daemon";
+import { Daemon } from "./daemon";
 import { IvePanel } from "./panel";
 import { DiagnosticBridge } from "./diagnostics";
 import { registerCommands } from "./commands";
 import { HealthCodeLensProvider, buildDecorations } from "./codelens";
+import { resolveDaemon } from "./pack";
 import type { HealthScore } from "./contracts";
 import * as log from "./logger";
 
@@ -18,16 +19,27 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const cfg = vscode.workspace.getConfiguration("ive");
   const userBin = cfg.get<string>("daemon.path") ?? "";
   const logLevel = cfg.get<string>("logLevel") ?? "info";
+  const autoDownload = cfg.get<boolean>("daemon.autoDownload") ?? true;
+  const packVersion = cfg.get<string>("daemon.packVersion") ?? `v${context.extension.packageJSON.version}`;
+  const repo = cfg.get<string>("daemon.repo") ?? "ThomasPluck/IVE";
+  const expectedSha256 = cfg.get<string>("daemon.packSha256") ?? "";
 
-  const bin = findDaemonBinary(context.extensionPath, userBin);
-  if (!bin) {
+  const resolution = await resolveDaemon(context.extensionPath, {
+    repo,
+    packVersion,
+    userSetting: userBin,
+    autoDownload,
+    expectedSha256: expectedSha256 || undefined,
+  });
+  if (!resolution) {
     vscode.window.showErrorMessage(
-      "IVE: daemon binary not found. Build with `cargo build --release` or set `ive.daemon.path`.",
+      "IVE: daemon binary not found. Build with `cargo build --release`, set `ive.daemon.path`, or enable `ive.daemon.autoDownload`.",
     );
     return;
   }
+  log.info("daemon resolved", { path: resolution.binaryPath, source: resolution.source });
 
-  const daemon = new Daemon({ binaryPath: bin, workspace, logLevel });
+  const daemon = new Daemon({ binaryPath: resolution.binaryPath, workspace, logLevel });
   context.subscriptions.push({ dispose: () => void daemon.stop() });
 
   const panel = new IvePanel(context.extensionUri, daemon);

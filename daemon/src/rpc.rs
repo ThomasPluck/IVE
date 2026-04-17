@@ -290,15 +290,25 @@ pub async fn dispatch_method(
             }
             Ok(Value::Null)
         }
-        "capabilities.status" => Ok(json!({
-            "cpg": { "available": false, "reason": joern::degraded_reason() },
-            "lsp": { "available": false, "reason": lsp::degraded_reason() },
-            "semgrep": {
-                "available": semgrep::binary_present(),
-                "reason": if semgrep::binary_present() { "ready" } else { semgrep::degraded_reason() },
-            },
-            "llm": { "available": false, "reason": "workstream G stub — configure API key when landed" },
-        })),
+        "capabilities.status" => {
+            let pyright_ready = lsp::pyright_present();
+            Ok(json!({
+                "cpg": { "available": false, "reason": joern::degraded_reason() },
+                "pyright": {
+                    "available": pyright_ready,
+                    "reason": if pyright_ready { "ready" } else { lsp::degraded_reason() },
+                },
+                "lsp": { "available": false, "reason": "tsc / rust-analyzer still stubbed (workstream D)" },
+                "semgrep": {
+                    "available": semgrep::binary_present(),
+                    "reason": if semgrep::binary_present() { "ready" } else { semgrep::degraded_reason() },
+                },
+                "llm": {
+                    "available": std::env::var("ANTHROPIC_API_KEY").is_ok(),
+                    "reason": if std::env::var("ANTHROPIC_API_KEY").is_ok() { "ready" } else { "ANTHROPIC_API_KEY not set" },
+                },
+            }))
+        }
         "ping" => Ok(json!("pong")),
         "daemon.info" => Ok(json!({
             "version": env!("CARGO_PKG_VERSION"),

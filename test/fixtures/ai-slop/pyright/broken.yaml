@@ -1,0 +1,7 @@
+expected_diagnostics:
+  - source: pyright
+    line: 6
+    severity: error
+expected_function_names:
+  - add
+  - use_it
