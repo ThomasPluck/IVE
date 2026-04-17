@@ -5,7 +5,7 @@
 //! For cold scans and manual rescan we simply iterate — the watcher is only
 //! about delta updates.
 
-use crate::analyzers::{crossfile, hallucination};
+use crate::analyzers::{crossfile, hallucination, semgrep};
 use crate::cache::DiskCache;
 use crate::contracts::{DaemonEvent, Diagnostic};
 use crate::events::EventTx;
@@ -71,6 +71,25 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
     let local_modules = hallucination::LocalModules::from_workspace(&state.root);
     let churn = git::collect_churn(&state.root, 14);
 
+    // Workspace-wide Semgrep pass (optional; degrades cleanly if absent).
+    let semgrep_diagnostics = if let Some(rules) = semgrep::rules_path() {
+        match semgrep::scan_path(&state.root, &rules) {
+            Some(diags) => {
+                info!(n = diags.len(), "semgrep pass complete");
+                diags
+            }
+            None => {
+                let _ = tx.send(DaemonEvent::CapabilityDegraded {
+                    capability: "semgrep".into(),
+                    reason: semgrep::degraded_reason().into(),
+                });
+                vec![]
+            }
+        }
+    } else {
+        vec![]
+    };
+
     let mut workspace = Workspace::default();
     workspace.lockfiles = lockfiles;
 
@@ -84,6 +103,14 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
         if let Ok(bytes) = std::fs::read(state.root.join(&sf.relative_path)) {
             diagnostics.extend(crossfile::check(sf, &bytes, &def_index));
         }
+
+        // Semgrep diagnostics for this file, filtered from the workspace run.
+        diagnostics.extend(
+            semgrep_diagnostics
+                .iter()
+                .filter(|d| d.location.file == sf.relative_path)
+                .cloned(),
+        );
 
         let file_churn = churn.get(&sf.relative_path).copied().unwrap_or(0);
         let mut fn_scores = Vec::with_capacity(sf.functions.len());

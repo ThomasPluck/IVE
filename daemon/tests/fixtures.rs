@@ -66,6 +66,21 @@ async fn typescript_hallucinated_fixture_flags_imaginary_and_allows_node_fs_prom
 }
 
 #[tokio::test]
+async fn cold_scan_under_latency_budget() {
+    // Spec §8: cold scan 10k LOC in <5s. Our fixtures are tiny so the bar
+    // is far tighter — if a single-digit-kLOC workspace takes more than a
+    // second, something regressed in the scan pipeline.
+    let dir = repo_root().join("test/fixtures/ai-slop/python");
+    let started = std::time::Instant::now();
+    let _state = scan(dir).await;
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed < std::time::Duration::from_millis(1500),
+        "scan too slow: {elapsed:?} (budget 1.5s for the python fixture)"
+    );
+}
+
+#[tokio::test]
 async fn crossfile_fixture_flags_arity_mismatch_and_ignores_defaults() {
     let dir = repo_root().join("test/fixtures/ai-slop/crossfile");
     let state = scan(dir).await;

@@ -15,6 +15,13 @@ pub type ChurnMap = HashMap<String, u32>;
 
 pub fn collect_churn(root: &Path, days: u32) -> ChurnMap {
     let mut out = ChurnMap::new();
+    // Short-circuit if we're not inside a git working tree. This avoids a
+    // multi-second timeout on systems where `git` does discovery up the
+    // filesystem. We walk up looking for `.git/` — worst case a handful of
+    // stat() calls.
+    if !is_in_git_repo(root) {
+        return out;
+    }
     let arg_since = format!("--since={days}.days");
     let result = Command::new("git")
         .arg("-C")
@@ -24,8 +31,12 @@ pub fn collect_churn(root: &Path, days: u32) -> ChurnMap {
             "--numstat",
             "--no-merges",
             "--pretty=format:",
+            "--no-renames",
+            "-1000", // cap traversal — good enough for a 14-day window
             &arg_since,
         ])
+        .arg("--")
+        .arg(".")
         .output();
     let Ok(output) = result else {
         return out;
@@ -36,6 +47,17 @@ pub fn collect_churn(root: &Path, days: u32) -> ChurnMap {
     let text = String::from_utf8_lossy(&output.stdout);
     parse_numstat(&text, &mut out);
     out
+}
+
+fn is_in_git_repo(root: &Path) -> bool {
+    let mut cur: Option<&Path> = Some(root);
+    while let Some(p) = cur {
+        if p.join(".git").exists() {
+            return true;
+        }
+        cur = p.parent();
+    }
+    false
 }
 
 fn parse_numstat(text: &str, out: &mut ChurnMap) {
