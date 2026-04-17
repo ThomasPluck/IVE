@@ -2,6 +2,45 @@
 
 ## [Unreleased]
 
+### M1+M2 — extension depth
+
+- **Debounced watcher (spec §2)** — 150ms notify-based debouncer spawned
+  from `serve_stdio`; touched files re-emit `diagnosticsUpdated`.
+- **CodeLens + red-border decorations (spec §7.7)** — per-function
+  health line above each function, plus a 2px red left-border on
+  `composite > 0.6` ranges. Re-fires on every `healthUpdated` event.
+- **Treemap drill-down (spec §7.3)** — click a file leaf to see a
+  function-level treemap; breadcrumb navigates back to workspace.
+- **Cross-file arity mismatch (workstream F)** — unambiguous workspace
+  definitions paired to bare-name call sites; severity=error, source
+  `ive-crossfile`. Handles Python defaults/variadic and TypeScript
+  optional/rest/default parameters.
+- **Git churn → novelty** — `git log --numstat --since=14.days`
+  parsed into a per-file churn map, fed into function-level novelty.
+  Degrades gracefully when git is absent.
+- **Persistent Merkle cache** — `.ive/cache/manifest.json` survives
+  restart so the first scan after reopening the workspace counts hits;
+  analyzer-version bump invalidates everything; prune drops artifacts
+  whose blob isn't live.
+- **Local-module whitelist** — `hallucination::LocalModules` resolves
+  top-level `.py` files and package dirs as workspace-local, so
+  `from lib import …` no longer flags when `lib.py` exists in-tree.
+- **File-level severity floor** — error/critical diagnostics push a file
+  to at least the yellow boundary (0.3) even when function-level scores
+  are low.
+
+### M3–M6 — grounded summaries, packaging hooks
+
+- **LLM summaries via Claude (workstream G)** — `summarize()` picks the
+  Anthropic path when `ANTHROPIC_API_KEY` is set, else falls back to the
+  deterministic fact-only summary. `IVE_LLM_MODEL` overrides the model
+  (default `claude-haiku-4-5`).
+- **Token-overlap entailment gate** — every sentence in the response is
+  checked against the fact set; unentailed sentences carry a
+  `reason: "no supporting fact found"` so the UI can strike them through.
+- **.vscode launch/tasks** — `build:all` pre-launch task, default and
+  fixture-workspace debug configs with `IVE_DAEMON_PATH` wired.
+
 ### M0 — foundation
 
 - **Contracts (§4)** — Rust (`daemon/src/contracts.rs`) and TypeScript
