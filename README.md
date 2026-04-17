@@ -136,11 +136,11 @@ strikes anything.
 ## Test
 
 ```bash
-cargo test --release                 # 74 unit + 10 fixture + 2 golden + 1 grounding eval
+cargo test --release                 # 74 unit + 11 fixture + 2 golden + 1 grounding eval
 ./test/run_fixtures.sh               # e2e sanity against test/fixtures/ai-slop
 ./test/e2e-stdio.sh                  # JSON-RPC over stdio smoke
 
-cd webview && npx vitest run         # 12 tests: treemap, Diagnostics, Summary, App
+cd webview && npx vitest run         # 13 tests: treemap, Diagnostics, Summary, App
 cd extension && npx vitest run       # 11 tests: real daemon subprocess + pack + hover
 ```
 
@@ -151,7 +151,42 @@ webview build + extension tests driven by the just-built daemon.
 `IVE_GOLDEN_UPDATE=1 cargo test --test golden` regenerates the snapshots
 at `test/golden/snapshots/` — treat every diff there as intentional.
 
-## What's real vs. stubbed
+## 22-point status (§0 + §5 + §7)
+
+The build-spec's surface area is four non-negotiables (§0), nine
+workstreams (§5 A–I), and nine UI subsections (§7.1–7.9). Each row is
+backed by a concrete test or shipped path.
+
+| # | Point | Status | Landed in |
+|---|---|---|---|
+| 1 | §0 Works on partially broken code | ✅ | tree-sitter parses on syntax-broken files; `daemon/src/parser/` |
+| 2 | §0 Silent when nothing to say | ✅ | empty-state branches across every panel; `webview/src/panels/` |
+| 3 | §0 Grounded summaries or none | ✅ | token-overlap entailment gate + offline trivially-entailed path; `daemon/src/analyzers/grounding.rs` |
+| 4 | §0 Fast enough to be ambient | ✅ | `cold_scan_under_latency_budget`, `intra_function_backward_slice_chains_assignments`, `offline_summary_under_latency_budget` in `daemon/tests/fixtures.rs` |
+| 5 | §5 A — Extension host | ✅ | activation, supervisor, commands, hover, CodeLens, fix-apply; `extension/src/` |
+| 6 | §5 B — Daemon core | ✅ | JSON-RPC, parsers, health, caches, watcher; `daemon/src/` |
+| 7 | §5 C — Joern / CPG | ⚠ intra-function slice + JRE+Joern presence detection; **full CPG slice deferred** (multi-week JVM pipeline); `daemon/src/analyzers/{slice,joern}.rs` |
+| 8 | §5 D — LSPs | ⚠ Pyright + tsc via CLI subprocess; **rust-analyzer deferred** (no CLI mode); `daemon/src/analyzers/lsp.rs` |
+| 9 | §5 E — Semgrep + PyTea | ✅ | 14-rule CWE-tagged ruleset, Semgrep runner, PyTea gated on `import torch`; `daemon/src/analyzers/{semgrep,pytea}.rs` |
+| 10 | §5 F — IVE-native checks | ✅ | hallucination (11 lockfile formats) + cross-file arity + WebGL/WebGPU binding + quick-fix TextEdits; `daemon/src/analyzers/{hallucination,crossfile,binding}.rs` |
+| 11 | §5 G — Grounding + gate | ✅ | offline + Anthropic + 100-case corpus, precision 0.965 / recall 0.911; `daemon/src/analyzers/grounding.rs` + `test/grounding/` |
+| 12 | §5 H — Webview | ✅ | four panels wired end-to-end; `webview/src/panels/` |
+| 13 | §5 I — Packaging | ✅ | cross-platform release workflow + first-run downloader with SHA-256 verify; `.github/workflows/release.yml` + `extension/src/pack.ts` |
+| 14 | §7.1 Visual language | ✅ | dark-theme token palette, monospace, hard edges; `webview/src/styles.css` |
+| 15 | §7.2 Panel layout | ✅ | 4-panel stacked with resize, activity-bar container; `webview/src/App.tsx` |
+| 16 | §7.3 Treemap | ✅ | squarified layout with file → function drill-down; `webview/src/panels/Treemap.tsx` |
+| 17 | §7.4 Diagnostics | ✅ | severity groups, filter chips, AI-first ordering, `j/k/Enter/.` keyboard; `webview/src/panels/Diagnostics.tsx` |
+| 18 | §7.5 Summary | ✅ | facts + struck-through unentailed claims + low-confidence banner; `webview/src/panels/Summary.tsx` |
+| 19 | §7.6 Slice | ✅ | origin dot, chain list, truncation hint; `webview/src/panels/Slice.tsx` |
+| 20 | §7.7 Editor integrations | ✅ | gutter dots (DiagnosticCollection), CodeLens, red-border decorations, health hover; `extension/src/{codelens,hover,diagnostics}.ts` |
+| 21 | §7.8 Commands | ✅ | all 8 commands keybound; `extension/package.json` + `extension/src/commands.ts` |
+| 22 | §7.9 Per-panel states | ✅ | cold / indexing / ready / empty / partial / per-panel error all handled; `webview/src/App.tsx` |
+
+✅ = shipped end-to-end. ⚠ = partial; the concrete work that ships is
+useful, the deferred piece is a multi-week external dependency and is
+called out as `capabilityDegraded` rather than faked.
+
+## Analyzer reference
 
 | Workstream | What works today | Deferred |
 |---|---|---|

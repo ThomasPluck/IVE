@@ -270,7 +270,16 @@ async fn intra_function_backward_slice_chains_assignments() {
         cross_file: false,
     };
     let bytes = std::fs::read(&path).unwrap();
-    match slice::compute(&req, &bytes, Language::Python) {
+    let started = std::time::Instant::now();
+    let outcome = slice::compute(&req, &bytes, Language::Python);
+    let elapsed = started.elapsed();
+    // §8 latency budget: slice backward 10 hops < 2s. Pure tree-sitter on
+    // a five-statement fixture should finish in microseconds.
+    assert!(
+        elapsed < std::time::Duration::from_secs(2),
+        "slice too slow: {elapsed:?} (budget 2s per spec §8)"
+    );
+    match outcome {
         slice::Outcome::Ok(s) => {
             let labels: Vec<String> = s.nodes.iter().map(|n| n.label.clone()).collect();
             assert!(
@@ -300,6 +309,64 @@ async fn intra_function_backward_slice_chains_assignments() {
         ),
     }
     std::fs::remove_dir_all(&tmp).ok();
+}
+
+/// Offline grounded summary for a 200-LOC function must finish well under
+/// the §8 5s budget. No LLM is involved — this guards the deterministic
+/// path that ships without `ANTHROPIC_API_KEY`.
+#[tokio::test]
+async fn offline_summary_under_latency_budget() {
+    use ive_daemon::analyzers::grounding;
+    use ive_daemon::contracts::{Location, Range};
+    use ive_daemon::parser::FunctionUnit;
+    use ive_daemon::scanner::ScannedFile;
+
+    let file = ScannedFile {
+        relative_path: "big.py".into(),
+        language: ive_daemon::parser::Language::Python,
+        loc: 200,
+        functions: vec![],
+        imports: (0..50)
+            .map(|i| ive_daemon::scanner::ImportEntry {
+                module: format!("mod_{i}"),
+                range_start: [i as u32, 0],
+                range_end: [i as u32, 10],
+            })
+            .collect(),
+        blob_sha: "x".into(),
+        bytes_read: 0,
+        location: Location {
+            file: "big.py".into(),
+            range: Range {
+                start: [0, 0],
+                end: [199, 0],
+            },
+        },
+    };
+    let unit = FunctionUnit {
+        symbol_id: "sym".into(),
+        name: "fn".into(),
+        location: Location {
+            file: "big.py".into(),
+            range: Range {
+                start: [0, 0],
+                end: [199, 0],
+            },
+        },
+        cognitive_complexity: 12,
+        loc: 200,
+        local_callees: (0..20).map(|i| format!("callee_{i}")).collect(),
+    };
+    let facts = grounding::extract_facts(&file, &unit);
+    let started = std::time::Instant::now();
+    let summary = grounding::offline_summary(&unit, facts);
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed < std::time::Duration::from_secs(5),
+        "offline summary too slow: {elapsed:?} (budget 5s per spec §8)"
+    );
+    assert!(!summary.facts_given.is_empty());
+    assert!(summary.claims.iter().all(|c| c.entailed));
 }
 
 /// Semgrep-backed diagnostics. Skipped when the binary is missing; CI

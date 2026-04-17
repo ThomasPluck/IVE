@@ -287,3 +287,29 @@ progress {
 .slice-label { flex: 1; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .slice-loc { white-space: nowrap; font-size: 11px; }
 .banner-inline { color: var(--ive-yellow); font-size: 11px; }
+
+/* Per-panel error (spec §7.9 state 6) */
+.panel-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(248, 81, 73, 0.12);
+  color: var(--ive-red);
+  font-size: 11px;
+  border-bottom: 1px solid var(--ive-border);
+}
+.panel-error-dismiss {
+  background: transparent;
+  color: var(--ive-red);
+  border: 1px solid var(--ive-red);
+  padding: 1px 6px;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.panel-error-dismiss:hover {
+  color: var(--ive-bg);
+  background: var(--ive-red);
+}

@@ -62,4 +62,21 @@ describe("IVE App", () => {
     });
     await screen.findByText(/Degraded: semgrep/);
   });
+
+  it("renders per-panel errors for summary and slice, not a global banner", async () => {
+    const { container } = render(<App />);
+    // Bring the view into "ready" state so the panels show.
+    dispatch({
+      type: "workspaceState",
+      payload: { scores: [mkFile("a.py", 0.1, "green")], diagnostics: {}, capabilities: {} },
+    });
+
+    dispatch({ type: "rpcError", id: -1, error: { code: -32000, message: "no API key" } });
+    await screen.findAllByText(/Summary failed: no API key/);
+    // The global banner must NOT fire for a panel-scoped error.
+    expect(container.querySelector(".banner-error")).toBeNull();
+
+    dispatch({ type: "rpcError", id: -2, error: { code: -32000, message: "no CPG" } });
+    await screen.findAllByText(/Slice failed: no CPG/);
+  });
 });

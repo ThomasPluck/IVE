@@ -19,8 +19,10 @@ export function App() {
   });
   const [summary, setSummary] = useState<GroundedSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [slice, setSlice] = useState<SliceView | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [sliceError, setSliceError] = useState<string | null>(null);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
   useEffect(() => {
     const onMessage = (ev: MessageEvent) => {
@@ -29,9 +31,9 @@ export function App() {
         case "status":
           setPhase(msg.payload.phase);
           if (msg.payload.phase === "error") {
-            setErrorMessage(msg.payload.message ?? "unknown error");
+            setGlobalError(msg.payload.message ?? "unknown error");
           } else {
-            setErrorMessage(null);
+            setGlobalError(null);
           }
           break;
         case "event":
@@ -46,17 +48,24 @@ export function App() {
           if (msg.id === -1 && isSummaryShape(msg.result)) {
             setSummary(msg.result as GroundedSummary);
             setSummaryLoading(false);
+            setSummaryError(null);
           } else if (msg.id === -2 && isSliceShape(msg.result)) {
             setSlice(toSliceView(msg.result as SliceResultShape));
+            setSliceError(null);
           }
           break;
         case "rpcError":
+          // Per-panel errors (spec §7.9 state 6) — surfaced inline in the
+          // affected panel rather than as a global banner so one failing
+          // subsystem doesn't shout over everything else.
           if (msg.id === -1) {
             setSummaryLoading(false);
-            setErrorMessage(`Summary: ${msg.error.message}`);
+            setSummaryError(msg.error.message);
           } else if (msg.id === -2) {
             setSlice(null);
-            setErrorMessage(`Slice: ${msg.error.message}`);
+            setSliceError(msg.error.message);
+          } else {
+            setGlobalError(msg.error.message);
           }
           break;
       }
@@ -127,7 +136,7 @@ export function App() {
         ) : null}
       </header>
 
-      {errorMessage ? <div className="banner banner-error">Error: {errorMessage}</div> : null}
+      {globalError ? <div className="banner banner-error">Error: {globalError}</div> : null}
       {anyDegraded ? (
         <div className="banner banner-warn">
           Degraded: {degradedList.map(([k]) => k).join(", ")} — some features disabled.
@@ -165,6 +174,17 @@ export function App() {
           </button>
         </header>
         <div className="panel-body">
+          {summaryError ? (
+            <div className="panel-error">
+              Summary failed: {summaryError}
+              <button
+                className="panel-error-dismiss"
+                onClick={() => setSummaryError(null)}
+              >
+                dismiss
+              </button>
+            </div>
+          ) : null}
           <Summary summary={summary} capabilities={state.capabilities} />
         </div>
       </section>
@@ -172,6 +192,17 @@ export function App() {
       <section className="panel panel-slice" aria-label="Slice">
         <header>Slice</header>
         <div className="panel-body">
+          {sliceError ? (
+            <div className="panel-error">
+              Slice failed: {sliceError}
+              <button
+                className="panel-error-dismiss"
+                onClick={() => setSliceError(null)}
+              >
+                dismiss
+              </button>
+            </div>
+          ) : null}
           <Slice slice={slice} capabilities={state.capabilities} />
         </div>
       </section>
