@@ -3,7 +3,7 @@
 //! YAML documents. Failures here should block a PR.
 
 use ive_daemon::{config::Config, events, state::State, watcher};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 fn repo_root() -> PathBuf {
@@ -11,6 +11,40 @@ fn repo_root() -> PathBuf {
         .parent()
         .unwrap()
         .to_path_buf()
+}
+
+/// Copy a fixture into an isolated tempdir so the scan does not discover the
+/// surrounding IVE git repo. Without this, `git churn` walks the full repo
+/// and the latency test becomes flaky on CI machines.
+fn isolate(fixture: &Path) -> PathBuf {
+    let stem = fixture.file_name().unwrap().to_string_lossy().into_owned();
+    let dest = std::env::temp_dir().join(format!(
+        "ive-fixture-{}-{}-{}",
+        stem,
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    copy_dir(fixture, &dest).expect("copy fixture");
+    dest
+}
+
+fn copy_dir(src: &Path, dest: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dest)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let from = entry.path();
+        let to = dest.join(entry.file_name());
+        if ty.is_dir() {
+            copy_dir(&from, &to)?;
+        } else if ty.is_file() {
+            std::fs::copy(&from, &to)?;
+        }
+    }
+    Ok(())
 }
 
 async fn scan(workspace: PathBuf) -> Arc<State> {
@@ -26,7 +60,7 @@ async fn scan(workspace: PathBuf) -> Arc<State> {
 
 #[tokio::test]
 async fn python_hallucinated_fixture_flags_hf_utils_and_pushes_file_out_of_green() {
-    let dir = repo_root().join("test/fixtures/ai-slop/python");
+    let dir = isolate(&repo_root().join("test/fixtures/ai-slop/python"));
     let state = scan(dir).await;
     let w = state.workspace.read().await;
     let diags = w.diagnostics.get("hallucinated.py").expect("file indexed");
@@ -48,7 +82,7 @@ async fn python_hallucinated_fixture_flags_hf_utils_and_pushes_file_out_of_green
 
 #[tokio::test]
 async fn typescript_hallucinated_fixture_flags_imaginary_and_allows_node_fs_promises() {
-    let dir = repo_root().join("test/fixtures/ai-slop/typescript");
+    let dir = isolate(&repo_root().join("test/fixtures/ai-slop/typescript"));
     let state = scan(dir).await;
     let w = state.workspace.read().await;
     let diags = w.diagnostics.get("hallucinated.ts").expect("file indexed");
@@ -67,7 +101,7 @@ async fn typescript_hallucinated_fixture_flags_imaginary_and_allows_node_fs_prom
 
 #[tokio::test]
 async fn webgl_binding_fixture_flags_missing_uniform() {
-    let dir = repo_root().join("test/fixtures/ai-slop/webgl");
+    let dir = isolate(&repo_root().join("test/fixtures/ai-slop/webgl"));
     let state = scan(dir).await;
     let w = state.workspace.read().await;
     let diags = w
@@ -91,10 +125,11 @@ async fn webgl_binding_fixture_flags_missing_uniform() {
 
 #[tokio::test]
 async fn cold_scan_under_latency_budget() {
-    // Spec §8: cold scan 10k LOC in <5s. Our fixtures are tiny so the bar
-    // is far tighter — if a single-digit-kLOC workspace takes more than a
-    // second, something regressed in the scan pipeline.
-    let dir = repo_root().join("test/fixtures/ai-slop/python");
+    // Spec §8: cold scan 10k LOC in <5s. Our fixtures are tiny, but they run
+    // inside an isolated tempdir — no outer git discovery, no semgrep — so
+    // a fixture scan is a lower bound on scan-pipeline cost. Budget is
+    // tuned for CI: anything under 1.5s is comfortably within spec.
+    let dir = isolate(&repo_root().join("test/fixtures/ai-slop/python"));
     let started = std::time::Instant::now();
     let _state = scan(dir).await;
     let elapsed = started.elapsed();
@@ -106,7 +141,7 @@ async fn cold_scan_under_latency_budget() {
 
 #[tokio::test]
 async fn crossfile_fixture_flags_arity_mismatch_and_ignores_defaults() {
-    let dir = repo_root().join("test/fixtures/ai-slop/crossfile");
+    let dir = isolate(&repo_root().join("test/fixtures/ai-slop/crossfile"));
     let state = scan(dir).await;
     let w = state.workspace.read().await;
     let diags = w.diagnostics.get("main.py").expect("main.py indexed");
