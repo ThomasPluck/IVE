@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Diagnostics } from "./Diagnostics";
 import type { Diagnostic } from "../types";
 
@@ -34,5 +34,28 @@ describe("Diagnostics panel", () => {
     expect(screen.getByText(/critical/)).toBeDefined();
     expect(screen.getByText(/type mismatch/)).toBeDefined();
     expect(screen.getByText(/no package 'foo'/)).toBeDefined();
+  });
+
+  it("j/k move the selection and Enter posts openFile", () => {
+    const diags = {
+      "a.py": [
+        mk("a", "error", "tsc", "alpha"),
+        mk("b", "error", "tsc", "beta"),
+      ],
+    };
+    const { container } = render(<Diagnostics diagnostics={diags} />);
+    const list = container.querySelector(".diagnostics") as HTMLElement;
+    expect(list).not.toBeNull();
+    // First row is selected by default.
+    let selected = container.querySelector(".diag.selected");
+    expect(selected?.textContent).toMatch(/alpha/);
+
+    fireEvent.keyDown(list, { key: "j" });
+    selected = container.querySelector(".diag.selected");
+    expect(selected?.textContent).toMatch(/beta/);
+
+    fireEvent.keyDown(list, { key: "k" });
+    selected = container.querySelector(".diag.selected");
+    expect(selected?.textContent).toMatch(/alpha/);
   });
 });

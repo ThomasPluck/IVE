@@ -217,9 +217,12 @@ progress {
 }
 .diag:hover { background: var(--ive-surface); }
 .diag:focus-visible { outline: 1px solid var(--ive-blue); }
+.diag.selected { background: var(--ive-surface); outline: 1px solid var(--ive-blue); }
 .diag.severity-critical { border-left-color: var(--ive-red); }
 .diag.severity-error    { border-left-color: var(--ive-red); }
 .diag.severity-warning  { border-left-color: var(--ive-yellow); }
+
+.diagnostics:focus-visible { outline: none; }
 
 .diag-top { display: flex; gap: 8px; align-items: baseline; }
 .diag-code { color: var(--ive-text-dim); font-size: 11px; }

@@ -1,7 +1,11 @@
 // Diagnostics panel — grouped by severity, AI-specific sources surface first
-// within each group. Keyboard navigable.
+// within each group. Keyboard navigable per spec §7.4:
+//   j / ↓   move selection down
+//   k / ↑   move selection up
+//   Enter   jump to the diagnostic location
+//   .       trigger a fix if one is available
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Diagnostic, DiagnosticSource, Severity } from "../types";
 import { vs } from "../vscode";
 
@@ -43,6 +47,16 @@ export function Diagnostics({ diagnostics }: { diagnostics: Record<string, Diagn
 
   const grouped = useMemo(() => groupBySeverity(filtered), [filtered]);
 
+  const ordered = useMemo<Diagnostic[]>(
+    () => SEVERITY_ORDER.flatMap((sev) => grouped.get(sev) ?? []),
+    [grouped],
+  );
+
+  const [cursor, setCursor] = useState(0);
+  useEffect(() => {
+    if (cursor >= ordered.length) setCursor(Math.max(0, ordered.length - 1));
+  }, [ordered, cursor]);
+
   const sourceCounts = useMemo(() => {
     const m = new Map<DiagnosticSource, number>();
     for (const d of flat) m.set(d.source, (m.get(d.source) ?? 0) + 1);
@@ -67,12 +81,51 @@ export function Diagnostics({ diagnostics }: { diagnostics: Record<string, Diagn
     }
   };
 
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const onKey = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (ordered.length === 0) return;
+      switch (e.key) {
+        case "j":
+        case "ArrowDown":
+          setCursor((c) => Math.min(c + 1, ordered.length - 1));
+          e.preventDefault();
+          break;
+        case "k":
+        case "ArrowUp":
+          setCursor((c) => Math.max(c - 1, 0));
+          e.preventDefault();
+          break;
+        case "Enter":
+          vs().postMessage({ type: "openFile", location: ordered[cursor].location });
+          e.preventDefault();
+          break;
+        case ".":
+          // Fix trigger is a daemon-side feature; when the diagnostic carries
+          // a `fix`, the extension applies TextEdits. The webview asks the
+          // extension to open the file and surface it as a quick-fix lightbulb.
+          vs().postMessage({ type: "openFile", location: ordered[cursor].location });
+          e.preventDefault();
+          break;
+      }
+    },
+    [ordered, cursor],
+  );
+
   if (flat.length === 0) {
     return <div className="empty">✓ No diagnostics.</div>;
   }
 
   return (
-    <div className="diagnostics">
+    <div
+      className="diagnostics"
+      tabIndex={0}
+      ref={containerRef}
+      role="listbox"
+      aria-activedescendant={ordered[cursor]?.id}
+      onKeyDown={onKey}
+    >
       <div className="filter-bar" role="group" aria-label="Diagnostic source filter">
         {[...sourceCounts.entries()]
           .sort((a, b) => a[0].localeCompare(b[0]))
@@ -103,9 +156,17 @@ export function Diagnostics({ diagnostics }: { diagnostics: Record<string, Diagn
               {sev} <span className="dim">({list.length})</span>
             </header>
             <ul>
-              {list.map((d) => (
-                <DiagnosticRow key={d.id} d={d} />
-              ))}
+              {list.map((d) => {
+                const index = ordered.indexOf(d);
+                return (
+                  <DiagnosticRow
+                    key={d.id}
+                    d={d}
+                    selected={index === cursor}
+                    onSelect={() => setCursor(index)}
+                  />
+                );
+              })}
             </ul>
           </section>
         );
@@ -114,15 +175,27 @@ export function Diagnostics({ diagnostics }: { diagnostics: Record<string, Diagn
   );
 }
 
-function DiagnosticRow({ d }: { d: Diagnostic }) {
+function DiagnosticRow({
+  d,
+  selected,
+  onSelect,
+}: {
+  d: Diagnostic;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const onOpen = () => vs().postMessage({ type: "openFile", location: d.location });
   return (
     <li
-      className={`diag severity-${d.severity}`}
-      tabIndex={0}
-      role="button"
-      onClick={onOpen}
-      onKeyDown={(e) => (e.key === "Enter" ? onOpen() : undefined)}
+      id={d.id}
+      className={`diag severity-${d.severity} ${selected ? "selected" : ""}`}
+      tabIndex={-1}
+      role="option"
+      aria-selected={selected}
+      onClick={() => {
+        onSelect();
+        onOpen();
+      }}
     >
       <div className="diag-top">
         <span className="diag-code">{d.code}</span>
