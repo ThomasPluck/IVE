@@ -5,6 +5,7 @@ import { Treemap } from "./panels/Treemap";
 import { Diagnostics } from "./panels/Diagnostics";
 import { Summary } from "./panels/Summary";
 import { Slice, type SliceView } from "./panels/Slice";
+import { Vibe } from "./panels/Vibe";
 import { vs } from "./vscode";
 
 type Phase = "cold" | "indexing" | "ready" | "error";
@@ -108,6 +109,9 @@ export function App() {
           },
         }));
         break;
+      case "notesUpdated":
+        setState((s) => ({ ...s, notes: e.notes }));
+        break;
     }
   }
 
@@ -204,6 +208,18 @@ export function App() {
             </div>
           ) : null}
           <Slice slice={slice} capabilities={state.capabilities} />
+        </div>
+      </section>
+
+      <section className="panel panel-vibe" aria-label="Vibe feed">
+        <header>
+          Vibe{" "}
+          {state.notes && state.notes.length > 0 ? (
+            <span className="dim">[{state.notes.length}]</span>
+          ) : null}
+        </header>
+        <div className="panel-body">
+          <Vibe notes={state.notes ?? []} />
         </div>
       </section>
     </div>

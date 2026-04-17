@@ -166,6 +166,94 @@ const TOOLS = [
     },
   },
   {
+    name: "ive_post_note",
+    description:
+      "Post a note to the user's IVE 'Vibe' feed. This is the primary way for you (Claude) to communicate asynchronous observations, intents, questions, or concerns to the human as you work. The note appears in the sidebar; clicking it opens the file; the user can resolve it when it's addressed. Prefer short, specific titles ('composite 0.82 on fetch()') over rambling bodies. Re-posting the same `id` replaces the previous note — use that to update a long-lived intent.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: {
+          type: "string",
+          enum: ["observation", "intent", "question", "concern"],
+          description:
+            "observation = 'I noticed X'. intent = 'I'm about to do X, redirect me if needed'. question = 'Should I do X?'. concern = 'X is wrong or risky'.",
+        },
+        title: {
+          type: "string",
+          description: "One short line. ≤80 chars is ideal.",
+        },
+        body: {
+          type: "string",
+          description:
+            "Supporting detail. Plain text; preserves newlines in the UI.",
+        },
+        file: {
+          type: "string",
+          description:
+            "Optional workspace-relative path to anchor the note to. Clicking the note jumps the editor here.",
+        },
+        line: {
+          type: "number",
+          description: "Optional 0-indexed line within `file`.",
+        },
+        column: {
+          type: "number",
+          description: "Optional 0-indexed column within `file`.",
+        },
+        symbol: {
+          type: "string",
+          description:
+            "Optional SymbolId from ive_health. Adds extra context to the note but doesn't affect UI beyond the body.",
+        },
+        severity: {
+          type: "string",
+          enum: ["hint", "info", "warning", "error", "critical"],
+          description:
+            "Optional. For `concern` notes this decides the severity colour (warning=yellow, error/critical=red). Omit for observation/intent/question.",
+        },
+        id: {
+          type: "string",
+          description:
+            "Optional stable id. Re-posting with the same id replaces the existing note (good for long-lived intents that you update).",
+        },
+      },
+      required: ["kind", "title"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "ive_list_notes",
+    description:
+      "Return every active note in the vibe feed, newest-last. Use this to check whether a concern you posted earlier was resolved by the user, or to avoid duplicating a note you've already made.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "ive_resolve_note",
+    description:
+      "Drop a note from the feed. Call this once you've addressed what the note was about (landed the refactor, answered the question, etc.). The user can also resolve notes from the sidebar.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+      },
+      required: ["id"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "ive_clear_notes",
+    description: "Clear every active note. Use sparingly.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "ive_rescan",
     description:
       "Invalidate cached results and re-run a full workspace scan. Use after big edits or when you suspect stale data.",
@@ -294,6 +382,43 @@ export async function main(): Promise<void> {
         case "ive_daemon_info": {
           const info = await daemon.call("daemon.info");
           return textBlock(info);
+        }
+        case "ive_post_note": {
+          const kind = String(args.kind ?? "");
+          const title = String(args.title ?? "");
+          if (!kind || !title) throw new Error("`kind` and `title` are required");
+          const draft: Record<string, unknown> = {
+            kind,
+            title,
+            body: typeof args.body === "string" ? args.body : "",
+          };
+          if (typeof args.file === "string" && args.file) {
+            const line = Number(args.line ?? 0);
+            const column = Number(args.column ?? 0);
+            draft.location = {
+              file: args.file,
+              range: { start: [line, column], end: [line, column] },
+            };
+          }
+          if (typeof args.symbol === "string") draft.symbol = args.symbol;
+          if (typeof args.severity === "string") draft.severity = args.severity;
+          if (typeof args.id === "string") draft.id = args.id;
+          const note = await daemon.call("notes.post", draft);
+          return textBlock(note);
+        }
+        case "ive_list_notes": {
+          const notes = await daemon.call("notes.list");
+          return textBlock(notes);
+        }
+        case "ive_resolve_note": {
+          const id = String(args.id ?? "");
+          if (!id) throw new Error("`id` is required");
+          const out = await daemon.call("notes.resolve", { id });
+          return textBlock(out);
+        }
+        case "ive_clear_notes": {
+          await daemon.call("notes.clear");
+          return textBlock({ ok: true });
         }
         default:
           return {

@@ -129,6 +129,7 @@ progress {
 .panel-diagnostics { flex: 1.2; min-height: 160px; }
 .panel-summary { flex: 1; min-height: 120px; }
 .panel-slice { flex: 0.8; min-height: 80px; }
+.panel-vibe { flex: 1; min-height: 140px; }
 
 /* Treemap */
 .treemap-wrap {
@@ -312,4 +313,82 @@ progress {
 .panel-error-dismiss:hover {
   color: var(--ive-bg);
   background: var(--ive-red);
+}
+
+/* Vibe — Claude ↔ user note feed (spec §0 rule 4, bond-by-legibility) */
+.vibe-empty {
+  padding: 16px;
+  color: var(--ive-text-dim);
+}
+.vibe-empty code {
+  color: var(--ive-text);
+  background: var(--ive-surface);
+  padding: 1px 4px;
+}
+.vibe-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+  overflow: auto;
+  height: 100%;
+}
+.vibe-row {
+  cursor: pointer;
+  padding: 8px 12px;
+  border-left: 3px solid var(--ive-border);
+  border-bottom: 1px solid var(--ive-border);
+  transition: background 120ms linear;
+}
+.vibe-row:hover { background: var(--ive-surface); }
+.vibe-row:focus-visible { outline: 1px solid var(--ive-blue); }
+
+.vibe-row.note-observation { border-left-color: var(--ive-blue); }
+.vibe-row.note-intent      { border-left-color: var(--ive-magenta); }
+.vibe-row.note-question    { border-left-color: var(--ive-yellow); }
+.vibe-row.note-concern     { border-left-color: var(--ive-yellow); }
+
+.vibe-row.note-critical, .vibe-row.note-error { border-left-color: var(--ive-red); }
+.vibe-row.note-warning                         { border-left-color: var(--ive-yellow); }
+
+.vibe-top {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 11px;
+}
+.vibe-glyph { width: 1em; text-align: center; }
+.vibe-kind {
+  color: var(--ive-text-dim);
+  text-transform: lowercase;
+  letter-spacing: -0.01em;
+}
+.vibe-author { font-size: 11px; }
+.vibe-spacer { flex: 1; }
+
+.vibe-resolve {
+  background: transparent;
+  color: var(--ive-text-dim);
+  border: 1px solid var(--ive-border);
+  font: inherit;
+  font-size: 10px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+.vibe-resolve:hover {
+  color: var(--ive-green);
+  border-color: var(--ive-green);
+}
+
+.vibe-title {
+  margin: 4px 0 2px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.vibe-body {
+  color: var(--ive-text-dim);
+  margin-bottom: 4px;
+  white-space: pre-wrap;
+}
+.vibe-loc {
+  font-size: 11px;
 }

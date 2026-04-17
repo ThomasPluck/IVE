@@ -281,6 +281,80 @@ pub struct GroundedSummary {
     pub generated_at: String,
 }
 
+// ─── Notes (Claude ↔ user vibe feed) ─────────────────────────────────
+//
+// The note feed is a small, explicit surface where agents working in the
+// workspace can drop observations, intents, questions, and concerns
+// that the user sees in real time. It's a companion to the grounded
+// summary — where summary says "here's what this function does",
+// the note feed says "here's what I noticed / intend / am worried
+// about while vibing." It's the channel that turns a one-shot tool
+// into a two-way loop (`spec §0`: bond between man and machine).
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum NoteKind {
+    /// "I noticed X." Neutral observation.
+    Observation,
+    /// "I'm about to do X." Intent the user can redirect.
+    Intent,
+    /// "Should I X?" Direct question, user responds out of band.
+    Question,
+    /// "X is wrong / risky." Severity-weighted worry.
+    Concern,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum NoteAuthor {
+    Claude,
+    User,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Note {
+    pub id: String,
+    pub kind: NoteKind,
+    pub title: String,
+    pub body: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<Location>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<SymbolId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub severity: Option<Severity>,
+    pub author: NoteAuthor,
+    /// ISO8601 UTC.
+    pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteDraft {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub kind: NoteKind,
+    pub title: String,
+    pub body: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub location: Option<Location>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<SymbolId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub severity: Option<Severity>,
+    #[serde(default)]
+    pub author: Option<NoteAuthor>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteResolveRequest {
+    pub id: String,
+}
+
 // ─── Events (daemon → extension) ─────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -299,6 +373,8 @@ pub enum DaemonEvent {
     CapabilityDegraded { capability: String, reason: String },
     #[serde(rename_all = "camelCase")]
     CapabilityRestored { capability: String },
+    #[serde(rename_all = "camelCase")]
+    NotesUpdated { notes: Vec<Note> },
 }
 
 // ─── Method params / results ────────────────────────────────────────

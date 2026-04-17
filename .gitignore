@@ -14,6 +14,7 @@ coverage/
 test-results/
 playwright-report/
 playwright/.cache/
+webview/e2e/screenshots/
 
 # IVE runtime state
 .ive/

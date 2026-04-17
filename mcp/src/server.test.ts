@@ -117,6 +117,72 @@ maybe("ive-mcp (stdio MCP server)", () => {
     expect(names).toContain("ive_rescan");
     expect(names).toContain("ive_list_files");
     expect(names).toContain("ive_daemon_info");
+    expect(names).toContain("ive_post_note");
+    expect(names).toContain("ive_list_notes");
+    expect(names).toContain("ive_resolve_note");
+    expect(names).toContain("ive_clear_notes");
+  });
+
+  it("ive_post_note + ive_list_notes + ive_resolve_note round-trip a concern", async () => {
+    // Start clean — prior test may have left notes behind.
+    await send("tools/call", { name: "ive_clear_notes", arguments: {} });
+
+    const postRes = (await send("tools/call", {
+      name: "ive_post_note",
+      arguments: {
+        kind: "concern",
+        title: "fetch() cc=7 and depends on a hallucinated import",
+        body: "Worth a closer look before shipping.",
+        file: "app.py",
+        line: 4,
+        severity: "warning",
+      },
+    })) as { result: { content: { text: string }[] } };
+    const posted = JSON.parse(postRes.result.content[0].text);
+    expect(posted.kind).toBe("concern");
+    expect(posted.title).toMatch(/fetch/);
+    expect(posted.author).toBe("claude");
+    expect(posted.id).toMatch(/^n-/);
+
+    const listRes = (await send("tools/call", {
+      name: "ive_list_notes",
+      arguments: {},
+    })) as { result: { content: { text: string }[] } };
+    const listed = JSON.parse(listRes.result.content[0].text);
+    expect(listed).toHaveLength(1);
+    expect(listed[0].title).toMatch(/fetch/);
+
+    const resolveRes = (await send("tools/call", {
+      name: "ive_resolve_note",
+      arguments: { id: posted.id },
+    })) as { result: { content: { text: string }[] } };
+    const resolved = JSON.parse(resolveRes.result.content[0].text);
+    expect(resolved.resolved).toBe(true);
+
+    const afterRes = (await send("tools/call", {
+      name: "ive_list_notes",
+      arguments: {},
+    })) as { result: { content: { text: string }[] } };
+    const after = JSON.parse(afterRes.result.content[0].text);
+    expect(after).toEqual([]);
+  });
+
+  it("ive_post_note with explicit id replaces the existing note", async () => {
+    await send("tools/call", { name: "ive_clear_notes", arguments: {} });
+    const post = (title: string) =>
+      send("tools/call", {
+        name: "ive_post_note",
+        arguments: { id: "pinned-intent", kind: "intent", title, body: "b" },
+      });
+    await post("first revision");
+    await post("second revision");
+    const listRes = (await send("tools/call", {
+      name: "ive_list_notes",
+      arguments: {},
+    })) as { result: { content: { text: string }[] } };
+    const notes = JSON.parse(listRes.result.content[0].text);
+    expect(notes).toHaveLength(1);
+    expect(notes[0].title).toBe("second revision");
   });
 
   it("ive_scan + ive_diagnostics round-trip the hallucination diag", async () => {

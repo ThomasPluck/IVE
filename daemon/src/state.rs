@@ -6,7 +6,7 @@
 use crate::analyzers::hallucination::LockfileIndex;
 use crate::cache::BlobIndex;
 use crate::config::Config;
-use crate::contracts::{Diagnostic, HealthScore, SymbolId};
+use crate::contracts::{Diagnostic, HealthScore, Note, SymbolId};
 use crate::scanner::{ParseCache, ScannedFile};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -20,6 +20,10 @@ pub struct Workspace {
     pub function_scores: HashMap<SymbolId, HealthScore>,
     pub file_scores: HashMap<String, HealthScore>,
     pub lockfiles: LockfileIndex,
+    /// Vibe feed — Claude's observations, intents, questions, and
+    /// concerns. The user sees this in the sidebar; clicking a note
+    /// jumps to its location, resolving it drops it from the list.
+    pub notes: Vec<Note>,
 }
 
 pub struct State {

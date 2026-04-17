@@ -59,17 +59,35 @@ export interface HealthScore {
   bucket: HealthBucket;
 }
 
+export type NoteKind = "observation" | "intent" | "question" | "concern";
+export type NoteAuthor = "claude" | "user";
+
+export interface Note {
+  id: string;
+  kind: NoteKind;
+  title: string;
+  body: string;
+  location?: Location;
+  symbol?: SymbolId;
+  severity?: Severity;
+  author: NoteAuthor;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
 export type DaemonEvent =
   | { type: "indexProgress"; filesDone: number; filesTotal: number }
   | { type: "healthUpdated"; scores: HealthScore[] }
   | { type: "diagnosticsUpdated"; file: string; diagnostics: Diagnostic[] }
   | { type: "capabilityDegraded"; capability: string; reason: string }
-  | { type: "capabilityRestored"; capability: string };
+  | { type: "capabilityRestored"; capability: string }
+  | { type: "notesUpdated"; notes: Note[] };
 
 export interface WorkspaceState {
   scores: HealthScore[];
   diagnostics: Record<string, Diagnostic[]>;
   capabilities: Record<string, { available: boolean; reason: string }>;
+  notes?: Note[];
 }
 
 export type FromExtensionMessage =

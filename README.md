@@ -197,11 +197,14 @@ backed by a concrete test or shipped path.
 | 20 | §7.7 Editor integrations | ✅ | gutter dots (DiagnosticCollection), CodeLens, red-border decorations, health hover; `extension/src/{codelens,hover,diagnostics}.ts` |
 | 21 | §7.8 Commands | ✅ | all 8 commands keybound; `extension/package.json` + `extension/src/commands.ts` |
 | 22 | §7.9 Per-panel states | ✅ | cold / indexing / ready / empty / partial / per-panel error all handled; `webview/src/App.tsx` |
+| 23 | §0 bond-by-legibility — Vibe feed | ✅ | Claude posts observations / intents / questions / concerns via the MCP `ive_post_note` tool; the user sees them in a fifth sidebar panel (Vibe) anchored to file+line, clicks to jump, clicks `resolve` when addressed. `daemon/src/contracts.rs` (Note), `daemon/src/rpc.rs` (notes.post/list/resolve/clear), `webview/src/panels/Vibe.tsx`, `mcp/src/server.ts` (4 new tools), Playwright screenshots at `webview/e2e/screenshots/`. |
 
-All 22 points ✅. Every external binary we shell out to — Pyright, tsc,
-Semgrep, PyTea, rust-analyzer, Joern — degrades cleanly when absent,
-via the typed `capabilityDegraded` event; the view surfaces the
-reason instead of silently producing an incomplete picture.
+All 22 spec points ✅, plus the Vibe loop the spec called out in §0 but
+didn't give a surface: **Claude now talks back**, and the user sees it.
+Every external binary we shell out to — Pyright, tsc, Semgrep, PyTea,
+rust-analyzer, Joern — degrades cleanly when absent, via the typed
+`capabilityDegraded` event; the view surfaces the reason instead of
+silently producing an incomplete picture.
 
 ## Analyzer reference
 

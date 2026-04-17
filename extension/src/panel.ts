@@ -54,9 +54,10 @@ export class IvePanel implements vscode.WebviewViewProvider {
 
   async refreshWorkspaceState(): Promise<void> {
     try {
-      const [scores, capabilities] = await Promise.all([
+      const [scores, capabilities, notes] = await Promise.all([
         this.daemon.call("workspace.healthSummary"),
         this.daemon.call("capabilities.status"),
+        this.daemon.call("notes.list"),
       ]);
       const diagnostics: Record<string, MethodResponse<"file.diagnostics">> = {};
       const files = await this.daemon.call("file.list");
@@ -69,6 +70,7 @@ export class IvePanel implements vscode.WebviewViewProvider {
           scores: scores as HealthScore[],
           diagnostics,
           capabilities: capabilities as Record<string, { available: boolean; reason: string }>,
+          notes: notes as import("./contracts").Note[],
         },
       });
     } catch (e) {
@@ -126,6 +128,13 @@ export class IvePanel implements vscode.WebviewViewProvider {
         break;
       case "applyFix":
         await this.applyFix(msg.fix);
+        break;
+      case "resolveNote":
+        try {
+          await this.daemon.call("notes.resolve", { id: msg.id });
+        } catch (e) {
+          log.warn("notes.resolve failed", (e as Error).message ?? e);
+        }
         break;
     }
   }

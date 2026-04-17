@@ -20,6 +20,31 @@ actually do?", "where did this value come from?" — directly.
 | `ive_capabilities` | `capabilities.status` | "which downstream analyzers are ready right now" |
 | `ive_daemon_info` | `daemon.info` | "version + workspace root" |
 
+### The vibe loop (spec §0: bond between man and machine)
+
+| Tool | Daemon method | Answers |
+|---|---|---|
+| `ive_post_note`   | `notes.post`    | "drop a note into the user's sidebar — observation, intent, question, or concern — optionally anchored to a file+line. Re-posting the same `id` replaces." |
+| `ive_list_notes`  | `notes.list`    | "what notes are active right now?" (so you don't duplicate them) |
+| `ive_resolve_note`| `notes.resolve` | "the thing this note was about is handled — drop it from the feed" |
+| `ive_clear_notes` | `notes.clear`   | "wipe the feed" (use sparingly) |
+
+The **Vibe** panel at the bottom of the IVE sidebar renders whatever
+`ive_post_note` writes. The user sees it instantly, can click a note to
+jump to its location, and resolves it once the underlying concern is
+addressed. It's the channel that turns a one-shot tool into a
+two-way loop: you can say "I'm about to refactor fetch(), here's why"
+before touching the code, and the user can redirect you.
+
+Use kinds deliberately:
+- **observation** — neutral fact worth surfacing. "fetch() fan-out jumped from 3 to 8 this week."
+- **intent** — something you're about to do; the user can redirect. "Replacing `requests` with `httpx`."
+- **question** — genuine ambiguity. "Keep the retry loop inside fetch()?"
+- **concern** — you think something's wrong or risky. "composite 0.82; this is the function I'd audit first."
+
+For `concern`, pair with `severity: warning | error | critical` so the
+stripe colour scales with urgency.
+
 Every tool returns a `content: [{type:"text", text:"..."}]` block with
 JSON inside. Schemas are stable — they mirror `spec §4`.
 

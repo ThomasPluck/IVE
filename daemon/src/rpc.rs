@@ -326,6 +326,33 @@ pub async fn dispatch_method(
                 },
             }))
         }
+        "notes.post" => {
+            let draft: crate::contracts::NoteDraft = serde_json::from_value(req.params.clone())
+                .map_err(|e| RpcError::invalid_params(format!("{e}")))?;
+            let note = handle_notes_post(draft, &state).await;
+            broadcast_notes(&state, &ev_tx).await;
+            Ok(serde_json::to_value(note).expect("serialise note"))
+        }
+        "notes.list" => {
+            let w = state.workspace.read().await;
+            Ok(serde_json::to_value(&w.notes).expect("serialise notes"))
+        }
+        "notes.resolve" => {
+            let params: crate::contracts::NoteResolveRequest =
+                serde_json::from_value(req.params.clone())
+                    .map_err(|e| RpcError::invalid_params(format!("{e}")))?;
+            let resolved = handle_notes_resolve(&params.id, &state).await;
+            broadcast_notes(&state, &ev_tx).await;
+            Ok(json!({ "resolved": resolved }))
+        }
+        "notes.clear" => {
+            {
+                let mut w = state.workspace.write().await;
+                w.notes.clear();
+            }
+            broadcast_notes(&state, &ev_tx).await;
+            Ok(Value::Null)
+        }
         "ping" => Ok(json!("pong")),
         "daemon.info" => Ok(json!({
             "version": env!("CARGO_PKG_VERSION"),
@@ -397,6 +424,105 @@ async fn handle_slice_compute(
             data: Some(json!({"capability": "cpg"})),
         }),
     }
+}
+
+async fn handle_notes_post(
+    draft: crate::contracts::NoteDraft,
+    state: &SharedState,
+) -> crate::contracts::Note {
+    let id = draft.id.unwrap_or_else(generate_note_id);
+    let created_at = iso8601_now();
+    let author = draft.author.unwrap_or(crate::contracts::NoteAuthor::Claude);
+    let note = crate::contracts::Note {
+        id,
+        kind: draft.kind,
+        title: draft.title,
+        body: draft.body,
+        location: draft.location,
+        symbol: draft.symbol,
+        severity: draft.severity,
+        author,
+        created_at,
+        resolved_at: None,
+    };
+    {
+        let mut w = state.workspace.write().await;
+        // Replace if an existing note shares the same id; otherwise append.
+        if let Some(pos) = w.notes.iter().position(|n| n.id == note.id) {
+            w.notes[pos] = note.clone();
+        } else {
+            w.notes.push(note.clone());
+        }
+    }
+    note
+}
+
+async fn handle_notes_resolve(id: &str, state: &SharedState) -> bool {
+    let mut w = state.workspace.write().await;
+    if let Some(pos) = w.notes.iter().position(|n| n.id == id) {
+        w.notes.remove(pos);
+        true
+    } else {
+        false
+    }
+}
+
+async fn broadcast_notes(state: &SharedState, ev_tx: &mpsc::UnboundedSender<DaemonEvent>) {
+    let w = state.workspace.read().await;
+    let _ = ev_tx.send(DaemonEvent::NotesUpdated {
+        notes: w.notes.clone(),
+    });
+}
+
+fn generate_note_id() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    format!("n-{nanos:x}")
+}
+
+fn iso8601_now() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    let (y, mo, d, h, mi, s) = unix_to_ymdhms(secs);
+    format!("{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}Z")
+}
+
+fn unix_to_ymdhms(secs: i64) -> (i64, u32, u32, u32, u32, u32) {
+    let days = secs.div_euclid(86_400);
+    let secs_of_day = secs.rem_euclid(86_400) as u32;
+    let h = secs_of_day / 3600;
+    let mi = (secs_of_day / 60) % 60;
+    let s = secs_of_day % 60;
+    let mut year: i64 = 1970;
+    let mut days_left = days;
+    loop {
+        let y_days = if is_leap(year) { 366 } else { 365 };
+        if days_left < y_days as i64 {
+            break;
+        }
+        days_left -= y_days as i64;
+        year += 1;
+    }
+    let months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let mut month = 1u32;
+    for (i, m) in months.iter().enumerate() {
+        let dm = if i == 1 && is_leap(year) { 29 } else { *m };
+        if days_left < dm as i64 {
+            month = (i + 1) as u32;
+            break;
+        }
+        days_left -= dm as i64;
+    }
+    (year, month, (days_left + 1) as u32, h, mi, s)
+}
+
+fn is_leap(y: i64) -> bool {
+    (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
 }
 
 async fn find_symbol_at(state: &SharedState, loc: &Location) -> Option<Location> {
@@ -515,5 +641,108 @@ mod tests {
         };
         let err = dispatch_method(&req, state, tx).await.unwrap_err();
         assert_eq!(err.code, -32601);
+    }
+
+    #[tokio::test]
+    async fn notes_post_list_resolve_round_trip() {
+        let state =
+            crate::state::State::new(std::env::temp_dir(), crate::config::Config::default());
+        let (tx, mut rx) = crate::events::channel();
+
+        let post = RpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "notes.post".into(),
+            params: json!({
+                "kind": "concern",
+                "title": "composite 0.82",
+                "body": "fetch() is deeply nested and grew 40 LOC since last week",
+                "location": {
+                    "file": "services/slop.py",
+                    "range": { "start": [5, 0], "end": [5, 0] }
+                },
+                "severity": "warning"
+            }),
+        };
+        let v = dispatch_method(&post, Arc::clone(&state), tx.clone())
+            .await
+            .unwrap();
+        let note: crate::contracts::Note = serde_json::from_value(v).unwrap();
+        assert_eq!(note.title, "composite 0.82");
+        assert_eq!(note.kind, crate::contracts::NoteKind::Concern);
+        assert_eq!(note.author, crate::contracts::NoteAuthor::Claude);
+        assert!(note.id.starts_with("n-"));
+
+        // Event broadcast lands on the channel.
+        let ev = rx.recv().await.expect("event");
+        match ev {
+            DaemonEvent::NotesUpdated { notes } => {
+                assert_eq!(notes.len(), 1);
+                assert_eq!(notes[0].id, note.id);
+            }
+            other => panic!("expected NotesUpdated, got {other:?}"),
+        }
+
+        let list = RpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(2)),
+            method: "notes.list".into(),
+            params: Value::Null,
+        };
+        let v = dispatch_method(&list, Arc::clone(&state), tx.clone())
+            .await
+            .unwrap();
+        let notes: Vec<crate::contracts::Note> = serde_json::from_value(v).unwrap();
+        assert_eq!(notes.len(), 1);
+
+        let resolve = RpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(3)),
+            method: "notes.resolve".into(),
+            params: json!({ "id": note.id }),
+        };
+        let v = dispatch_method(&resolve, Arc::clone(&state), tx.clone())
+            .await
+            .unwrap();
+        assert_eq!(v["resolved"], json!(true));
+
+        let list = RpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(4)),
+            method: "notes.list".into(),
+            params: Value::Null,
+        };
+        let v = dispatch_method(&list, Arc::clone(&state), tx)
+            .await
+            .unwrap();
+        let notes: Vec<crate::contracts::Note> = serde_json::from_value(v).unwrap();
+        assert!(notes.is_empty(), "resolve should drop the note");
+    }
+
+    #[tokio::test]
+    async fn notes_post_with_explicit_id_replaces_existing() {
+        let state =
+            crate::state::State::new(std::env::temp_dir(), crate::config::Config::default());
+        let (tx, _rx) = crate::events::channel();
+        let make = |title: &str| RpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "notes.post".into(),
+            params: json!({
+                "id": "pinned-1",
+                "kind": "intent",
+                "title": title,
+                "body": "b",
+            }),
+        };
+        dispatch_method(&make("first"), Arc::clone(&state), tx.clone())
+            .await
+            .unwrap();
+        dispatch_method(&make("second"), Arc::clone(&state), tx.clone())
+            .await
+            .unwrap();
+        let w = state.workspace.read().await;
+        assert_eq!(w.notes.len(), 1);
+        assert_eq!(w.notes[0].title, "second");
     }
 }
