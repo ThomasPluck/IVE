@@ -1,0 +1,28 @@
+{
+  "name": "ive-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP server fronting the IVE daemon so Claude (and other MCP clients) can query the same data model the VSCode extension sees.",
+  "license": "MIT",
+  "main": "dist/server.js",
+  "bin": {
+    "ive-mcp": "dist/server.js"
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.9"
+  }
+}

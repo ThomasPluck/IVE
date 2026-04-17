@@ -62,3 +62,13 @@ jobs:
       - name: extension build
         run: |
           cd extension && node esbuild.mjs
+
+      - name: install mcp deps
+        run: |
+          cd mcp && npm ci
+      - name: mcp typecheck + build
+        run: |
+          cd mcp && npx tsc --noEmit && node esbuild.mjs
+      - name: mcp e2e (drives daemon via MCP stdio)
+        run: |
+          cd mcp && npx vitest run

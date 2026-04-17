@@ -71,6 +71,12 @@ webview/              — Workstream H: React UI (squarified treemap)
   src/panels/Summary.tsx     — grounded-summary renderer, struck-through
                                unentailed claims, low-confidence banner
   src/panels/Slice.tsx       — intra-function slice list, truncation hint
+  e2e/panels.spec.ts         — Playwright browser tests (13 cases)
+
+mcp/                  — MCP server fronting the daemon for Claude / Cursor
+  src/server.ts       — tools/list + tools/call, stdio newline framing
+  src/daemon.ts       — subprocess client that reuses the JSON-RPC wire
+  src/server.test.ts  — drives the server like Claude Desktop would
 
 rules/                — Workstream E: curated AI-slop Semgrep rules (14)
 test/fixtures/        — YAML-sidecar regression fixtures
@@ -139,13 +145,20 @@ strikes anything.
 ## Test
 
 ```bash
-cargo test --release                 # 74 unit + 11 fixture + 2 golden + 1 grounding eval
+cargo test --release                 # 82 unit + 12 fixture + 2 golden + 1 grounding eval
 ./test/run_fixtures.sh               # e2e sanity against test/fixtures/ai-slop
 ./test/e2e-stdio.sh                  # JSON-RPC over stdio smoke
 
-cd webview && npx vitest run         # 13 tests: treemap, Diagnostics, Summary, App
-cd extension && npx vitest run       # 11 tests: real daemon subprocess + pack + hover
+cd webview   && npx vitest run         # 13 jsdom tests
+cd webview   && npx playwright test    # 13 browser tests (Chromium, built bundle)
+cd extension && npx vitest run         # 11 tests: real daemon subprocess + pack + hover
+cd mcp       && npx vitest run         # 4 tests: Claude-style stdio round-trip
 ```
+
+Wire the MCP server into Claude Desktop / Cursor with `mcp/README.md` —
+the server fronts the same daemon the extension talks to, so Claude can
+call `ive_scan`, `ive_health`, `ive_diagnostics`, `ive_summarize`,
+`ive_slice`, `ive_worst`, `ive_capabilities`, etc. directly.
 
 CI (`.github/workflows/ci.yml`) runs the Rust suite + fixture runner,
 installs Pyright + Semgrep via pip, and exercises the TS typecheck +
