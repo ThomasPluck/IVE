@@ -1,0 +1,13 @@
+{
+  "id": "ts/process_spawn",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls child_process spawn" },
+    { "id": "f2", "kind": "call", "content": "calls proc on" }
+  ],
+  "summary": "Launches the child via child_process spawn and wires proc on close to resolve the Promise with the exit code. Streams stdout into a live tail endpoint.",
+  "labels": [
+    { "sentence": "Launches the child via child_process spawn and wires proc on close to resolve the Promise with the exit code.", "entailed": true },
+    { "sentence": "Streams stdout into a live tail endpoint.", "entailed": false }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "py/dedent_docstring",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls textwrap dedent" },
+    { "id": "f2", "kind": "return_type", "content": "returns str" }
+  ],
+  "summary": "Normalises indentation with textwrap dedent and returns the cleaned string. The normalised text is also keyword-indexed for search.",
+  "labels": [
+    { "sentence": "Normalises indentation with textwrap dedent and returns the cleaned string.", "entailed": true },
+    { "sentence": "The normalised text is also keyword-indexed for search.", "entailed": false }
+  ]
+}

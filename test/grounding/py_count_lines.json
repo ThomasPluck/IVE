@@ -1,0 +1,13 @@
+{
+  "id": "py/count_lines",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls open" },
+    { "id": "f2", "kind": "return_type", "content": "returns int" }
+  ],
+  "summary": "Opens the file with open and returns the int count of newline-terminated lines. Also fetches the file's xattr metadata.",
+  "labels": [
+    { "sentence": "Opens the file with open and returns the int count of newline-terminated lines.", "entailed": true },
+    { "sentence": "Also fetches the file's xattr metadata.", "entailed": false }
+  ]
+}

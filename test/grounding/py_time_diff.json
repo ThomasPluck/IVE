@@ -1,0 +1,12 @@
+{
+  "id": "py/time_diff",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls time monotonic" },
+    { "id": "f2", "kind": "return_type", "content": "returns float" }
+  ],
+  "summary": "Samples time monotonic before and after the callable and returns the float elapsed seconds.",
+  "labels": [
+    { "sentence": "Samples time monotonic before and after the callable and returns the float elapsed seconds.", "entailed": true }
+  ]
+}

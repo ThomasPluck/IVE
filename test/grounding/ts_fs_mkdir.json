@@ -1,0 +1,13 @@
+{
+  "id": "ts/fs_mkdir",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls fs promises mkdir" },
+    { "id": "f2", "kind": "return_type", "content": "returns Promise" }
+  ],
+  "summary": "Creates the nested directory via fs promises mkdir with recursive: true and returns the Promise. Automatically copies the new directory across all replicas.",
+  "labels": [
+    { "sentence": "Creates the nested directory via fs promises mkdir with recursive: true and returns the Promise.", "entailed": true },
+    { "sentence": "Automatically copies the new directory across all replicas.", "entailed": false }
+  ]
+}

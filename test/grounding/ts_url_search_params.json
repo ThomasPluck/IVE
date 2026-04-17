@@ -1,0 +1,13 @@
+{
+  "id": "ts/url_search_params",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls URLSearchParams" },
+    { "id": "f2", "kind": "return_type", "content": "returns string" }
+  ],
+  "summary": "Serialises the key-value pairs via URLSearchParams and returns the string query. Automatically signs the query for integrity.",
+  "labels": [
+    { "sentence": "Serialises the key-value pairs via URLSearchParams and returns the string query.", "entailed": true },
+    { "sentence": "Automatically signs the query for integrity.", "entailed": false }
+  ]
+}

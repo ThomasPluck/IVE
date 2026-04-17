@@ -1,0 +1,13 @@
+{
+  "id": "py/env_var",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls os environ get" },
+    { "id": "f2", "kind": "return_type", "content": "returns Optional str" }
+  ],
+  "summary": "Looks up the variable via os environ get and returns Optional str. Falls back to a Vault lookup when absent.",
+  "labels": [
+    { "sentence": "Looks up the variable via os environ get and returns Optional str.", "entailed": true },
+    { "sentence": "Falls back to a Vault lookup when absent.", "entailed": false }
+  ]
+}

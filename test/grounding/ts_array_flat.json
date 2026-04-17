@@ -1,0 +1,13 @@
+{
+  "id": "ts/array_flat",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls array flat" },
+    { "id": "f2", "kind": "return_type", "content": "returns Array" }
+  ],
+  "summary": "Flattens nested arrays with array flat and returns the unified Array. Also re-hashes each element into a Bloom filter.",
+  "labels": [
+    { "sentence": "Flattens nested arrays with array flat and returns the unified Array.", "entailed": true },
+    { "sentence": "Also re-hashes each element into a Bloom filter.", "entailed": false }
+  ]
+}

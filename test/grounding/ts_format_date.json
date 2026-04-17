@@ -1,0 +1,13 @@
+{
+  "id": "ts/format_date",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls Intl DateTimeFormat" },
+    { "id": "f2", "kind": "return_type", "content": "returns string" }
+  ],
+  "summary": "Formats the Date using Intl DateTimeFormat with the locale argument and returns the string. Also tracks locale usage in an analytics warehouse.",
+  "labels": [
+    { "sentence": "Formats the Date using Intl DateTimeFormat with the locale argument and returns the string.", "entailed": true },
+    { "sentence": "Also tracks locale usage in an analytics warehouse.", "entailed": false }
+  ]
+}

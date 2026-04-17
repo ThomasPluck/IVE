@@ -1,0 +1,13 @@
+{
+  "id": "py/rotate_matrix",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function rotate (6 LOC)" },
+    { "id": "f2", "kind": "return_type", "content": "returns list list" }
+  ],
+  "summary": "Rotates the square matrix clockwise by 90 degrees and returns the new list of lists. Also renders the rotated matrix as an SVG.",
+  "labels": [
+    { "sentence": "Rotates the square matrix clockwise by 90 degrees and returns the new list of lists.", "entailed": true },
+    { "sentence": "Also renders the rotated matrix as an SVG.", "entailed": false }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "ts/clone_deep",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls structuredClone" },
+    { "id": "f2", "kind": "return_type", "content": "returns T" }
+  ],
+  "summary": "Deep-clones the input via structuredClone and returns the typed T. Additionally interns primitive leaves into a shared symbol table.",
+  "labels": [
+    { "sentence": "Deep-clones the input via structuredClone and returns the typed T.", "entailed": true },
+    { "sentence": "Additionally interns primitive leaves into a shared symbol table.", "entailed": false }
+  ]
+}

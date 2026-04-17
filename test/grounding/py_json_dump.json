@@ -1,0 +1,13 @@
+{
+  "id": "py/json_dump",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls json dump" },
+    { "id": "f2", "kind": "call", "content": "calls open" }
+  ],
+  "summary": "Opens the target file via open and serialises the payload with json dump, returning None. Simultaneously backs the file up to S3 Glacier.",
+  "labels": [
+    { "sentence": "Opens the target file via open and serialises the payload with json dump, returning None.", "entailed": true },
+    { "sentence": "Simultaneously backs the file up to S3 Glacier.", "entailed": false }
+  ]
+}

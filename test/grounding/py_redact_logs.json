@@ -1,0 +1,13 @@
+{
+  "id": "py/redact_logs",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls re sub" },
+    { "id": "f2", "kind": "return_type", "content": "returns str" }
+  ],
+  "summary": "Strips sensitive tokens with re sub and returns the redacted string. The stripped tokens are forwarded to a security SIEM.",
+  "labels": [
+    { "sentence": "Strips sensitive tokens with re sub and returns the redacted string.", "entailed": true },
+    { "sentence": "The stripped tokens are forwarded to a security SIEM.", "entailed": false }
+  ]
+}

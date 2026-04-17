@@ -1,0 +1,13 @@
+{
+  "id": "py/worker_pool",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls multiprocessing Pool" },
+    { "id": "f2", "kind": "call", "content": "calls pool map" }
+  ],
+  "summary": "Allocates a multiprocessing Pool and distributes work through pool map. Autoscales the worker count based on queue depth every thirty seconds.",
+  "labels": [
+    { "sentence": "Allocates a multiprocessing Pool and distributes work through pool map.", "entailed": true },
+    { "sentence": "Autoscales the worker count based on queue depth every thirty seconds.", "entailed": false }
+  ]
+}

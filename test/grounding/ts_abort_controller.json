@@ -1,0 +1,13 @@
+{
+  "id": "ts/abort_controller",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls AbortController" },
+    { "id": "f2", "kind": "call", "content": "calls controller abort" }
+  ],
+  "summary": "Creates an AbortController and cancels the pending fetch by calling controller abort when the timeout fires. Additionally records the cancellation to a distributed trace.",
+  "labels": [
+    { "sentence": "Creates an AbortController and cancels the pending fetch by calling controller abort when the timeout fires.", "entailed": true },
+    { "sentence": "Additionally records the cancellation to a distributed trace.", "entailed": false }
+  ]
+}

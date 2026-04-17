@@ -131,8 +131,8 @@ fn entailment_gate_meets_spec_precision_and_recall() {
     // grow the corpus — dropping cases is a deliberate call, not a silent
     // regression.
     assert!(
-        cases.len() >= 45,
-        "grounding corpus must keep ≥45 cases; found {}",
+        cases.len() >= 70,
+        "grounding corpus must keep ≥70 cases; found {}",
         cases.len()
     );
 

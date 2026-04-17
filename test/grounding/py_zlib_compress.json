@@ -1,0 +1,13 @@
+{
+  "id": "py/zlib_compress",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls zlib compress" },
+    { "id": "f2", "kind": "return_type", "content": "returns bytes" }
+  ],
+  "summary": "Compresses the payload with zlib compress and returns the resulting bytes. Also uploads the compressed blob to cold storage.",
+  "labels": [
+    { "sentence": "Compresses the payload with zlib compress and returns the resulting bytes.", "entailed": true },
+    { "sentence": "Also uploads the compressed blob to cold storage.", "entailed": false }
+  ]
+}
