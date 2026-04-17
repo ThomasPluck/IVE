@@ -1,0 +1,14 @@
+{
+  "id": "py/read_csv",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls csv DictReader" },
+    { "id": "f2", "kind": "call", "content": "calls open" },
+    { "id": "f3", "kind": "return_type", "content": "returns list dict" }
+  ],
+  "summary": "Opens the file with open and parses rows via csv DictReader, returning a list of dicts. Automatically deduplicates rows by primary key.",
+  "labels": [
+    { "sentence": "Opens the file with open and parses rows via csv DictReader, returning a list of dicts.", "entailed": true },
+    { "sentence": "Automatically deduplicates rows by primary key.", "entailed": false }
+  ]
+}

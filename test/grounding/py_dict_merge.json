@@ -1,0 +1,13 @@
+{
+  "id": "py/dict_merge",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function merge (4 LOC)" },
+    { "id": "f2", "kind": "return_type", "content": "returns dict" }
+  ],
+  "summary": "Merges the two dictionaries left-to-right and returns a new dict. Also diffs the values against git history.",
+  "labels": [
+    { "sentence": "Merges the two dictionaries left-to-right and returns a new dict.", "entailed": true },
+    { "sentence": "Also diffs the values against git history.", "entailed": false }
+  ]
+}

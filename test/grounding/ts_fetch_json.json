@@ -1,0 +1,14 @@
+{
+  "id": "ts/fetch_json",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls fetch" },
+    { "id": "f2", "kind": "call", "content": "calls response json" },
+    { "id": "f3", "kind": "return_type", "content": "returns Promise" }
+  ],
+  "summary": "Calls fetch and awaits response json, returning a Promise that resolves to the parsed body. Caches the result in Redis for thirty seconds.",
+  "labels": [
+    { "sentence": "Calls fetch and awaits response json, returning a Promise that resolves to the parsed body.", "entailed": true },
+    { "sentence": "Caches the result in Redis for thirty seconds.", "entailed": false }
+  ]
+}

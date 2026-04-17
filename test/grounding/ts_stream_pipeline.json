@@ -1,0 +1,14 @@
+{
+  "id": "ts/stream_pipeline",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls pipeline" },
+    { "id": "f2", "kind": "call", "content": "calls createReadStream" },
+    { "id": "f3", "kind": "call", "content": "calls createGzip" }
+  ],
+  "summary": "Chains createReadStream into createGzip through pipeline and returns a promise that settles on the last stream close. Also tees a copy to a remote backup bucket.",
+  "labels": [
+    { "sentence": "Chains createReadStream into createGzip through pipeline and returns a promise that settles on the last stream close.", "entailed": true },
+    { "sentence": "Also tees a copy to a remote backup bucket.", "entailed": false }
+  ]
+}

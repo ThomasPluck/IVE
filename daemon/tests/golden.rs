@@ -239,3 +239,11 @@ async fn run_golden(name: &str) {
 async fn golden_ministore_is_stable() {
     run_golden("ministore").await;
 }
+
+/// A workspace deliberately laced with AI slop: one hallucinated import, a
+/// deeply-nested `fetch` function. Snapshot captures the yellow bucket and
+/// the hallucination diagnostic so regressions to either are visible.
+#[tokio::test]
+async fn golden_slopfest_is_stable() {
+    run_golden("slopfest").await;
+}

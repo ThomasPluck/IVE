@@ -1,0 +1,13 @@
+{
+  "id": "py/pathlib_walk",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls pathlib Path rglob" },
+    { "id": "f2", "kind": "return_type", "content": "returns Iterator Path" }
+  ],
+  "summary": "Walks the tree recursively with pathlib Path rglob and returns an Iterator of Path. Simultaneously uploads every matched file to S3.",
+  "labels": [
+    { "sentence": "Walks the tree recursively with pathlib Path rglob and returns an Iterator of Path.", "entailed": true },
+    { "sentence": "Simultaneously uploads every matched file to S3.", "entailed": false }
+  ]
+}

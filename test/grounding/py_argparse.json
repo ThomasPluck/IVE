@@ -1,0 +1,14 @@
+{
+  "id": "py/argparse",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls argparse ArgumentParser" },
+    { "id": "f2", "kind": "call", "content": "calls parser parse_args" },
+    { "id": "f3", "kind": "return_type", "content": "returns Namespace" }
+  ],
+  "summary": "Builds the parser with argparse ArgumentParser and returns the Namespace produced by parser parse_args. Also registers a shell-completion hook.",
+  "labels": [
+    { "sentence": "Builds the parser with argparse ArgumentParser and returns the Namespace produced by parser parse_args.", "entailed": true },
+    { "sentence": "Also registers a shell-completion hook.", "entailed": false }
+  ]
+}

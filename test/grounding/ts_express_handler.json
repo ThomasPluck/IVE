@@ -1,0 +1,14 @@
+{
+  "id": "ts/express_handler",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls res json" },
+    { "id": "f2", "kind": "call", "content": "calls next" },
+    { "id": "f3", "kind": "signature", "content": "function handler (8 LOC)" }
+  ],
+  "summary": "Responds with res json when the input validates and calls next with the error otherwise. Streams logs to Datadog on every invocation.",
+  "labels": [
+    { "sentence": "Responds with res json when the input validates and calls next with the error otherwise.", "entailed": true },
+    { "sentence": "Streams logs to Datadog on every invocation.", "entailed": false }
+  ]
+}
