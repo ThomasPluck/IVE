@@ -7,7 +7,7 @@ use crate::analyzers::hallucination::LockfileIndex;
 use crate::cache::BlobIndex;
 use crate::config::Config;
 use crate::contracts::{Diagnostic, HealthScore, SymbolId};
-use crate::scanner::ScannedFile;
+use crate::scanner::{ParseCache, ScannedFile};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -27,6 +27,8 @@ pub struct State {
     pub config: Config,
     pub workspace: RwLock<Workspace>,
     pub blobs: BlobIndex,
+    /// SHA-keyed parse-result cache — `spec §2` incremental reparse lite.
+    pub parse_cache: ParseCache,
     pub capabilities: RwLock<Capabilities>,
 }
 
@@ -45,6 +47,7 @@ impl State {
             config,
             workspace: RwLock::new(Workspace::default()),
             blobs: BlobIndex::default(),
+            parse_cache: ParseCache::default(),
             capabilities: RwLock::new(Capabilities::default()),
         })
     }

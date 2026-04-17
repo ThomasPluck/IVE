@@ -49,7 +49,9 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
 
     for path in &paths {
         done += 1;
-        if let Ok(Some(sf)) = scanner::scan_file(&state.root, path) {
+        if let Ok(Some(sf)) =
+            scanner::scan_file_with_cache(&state.root, path, Some(&state.parse_cache))
+        {
             let (changed, _sha) = state
                 .blobs
                 .update_if_changed(path.to_path_buf(), path_bytes(path).as_ref());
@@ -262,10 +264,24 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
         debug!(error = %e, "failed to persist cache manifest");
     }
 
+    // Prune parse cache to this scan's live SHAs so memory stays bounded.
+    let live_shas: std::collections::HashSet<String> = state
+        .workspace
+        .read()
+        .await
+        .files
+        .values()
+        .map(|sf| sf.blob_sha.clone())
+        .collect();
+    state.parse_cache.retain_shas(&live_shas);
+
+    let (parse_hits, parse_misses) = state.parse_cache.stats();
     info!(
         elapsed_ms = started.elapsed().as_millis() as u64,
         files = total,
-        cache_hits,
+        blob_cache_hits = cache_hits,
+        parse_cache_hits = parse_hits,
+        parse_cache_misses = parse_misses,
         "workspace scan complete"
     );
     Ok(())
