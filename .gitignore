@@ -13,6 +13,10 @@ coverage/
 # IVE runtime state
 .ive/
 
+# Staged release assets (populated by extension/esbuild.mjs)
+extension/LICENSE
+extension/resources/
+
 # Editor / OS
 .DS_Store
 .claude/

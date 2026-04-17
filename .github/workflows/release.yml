@@ -1,0 +1,137 @@
+name: Release
+
+# Produces the analyzer pack (ive-daemon binary) and the VSIX, then
+# publishes both to a GitHub Release. Per spec §10 (workstream I) and
+# §2 ("first-run analyzer-pack installer"), the extension is small and
+# the daemon ships alongside — users download the pack on first run.
+#
+# Triggers:
+# - tag push matching `v*` → full release
+# - manual `workflow_dispatch` → dry-run artefacts, no release draft
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  daemon:
+    name: daemon (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive: tar.gz
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            archive: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --release
+      - run: cargo build --release --target ${{ matrix.target }} -p ive-daemon
+      - name: package daemon
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="ive-daemon-${{ matrix.target }}"
+          mkdir -p "$out"
+          if [[ "${{ matrix.target }}" == *-windows-* ]]; then
+            cp "target/${{ matrix.target }}/release/ive-daemon.exe" "$out/"
+          else
+            cp "target/${{ matrix.target }}/release/ive-daemon" "$out/"
+          fi
+          cp -r rules "$out/"
+          cp LICENSE "$out/"
+          cp README.md "$out/"
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            7z a "${out}.zip" "$out"
+          else
+            tar czf "${out}.tar.gz" "$out"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: daemon-${{ matrix.target }}
+          path: |
+            ive-daemon-${{ matrix.target }}.${{ matrix.archive }}
+
+  extension:
+    name: extension (VSIX)
+    runs-on: ubuntu-latest
+    needs: daemon
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: build daemon (linux; used by extension tests)
+        run: cargo build --release -p ive-daemon
+      - name: webview install + test + build
+        run: |
+          cd webview
+          npm ci
+          npm test
+          npm run build
+      - name: extension install + test + package
+        env:
+          IVE_DAEMON_PATH: ${{ github.workspace }}/target/release/ive-daemon
+        run: |
+          cd extension
+          npm ci
+          npx tsc --noEmit
+          npx vitest run
+          node esbuild.mjs
+          npx vsce package --no-yarn --out ../ive.vsix
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: ive.vsix
+
+  release:
+    name: draft release
+    runs-on: ubuntu-latest
+    needs: [daemon, extension]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: flatten artefacts
+        run: |
+          mkdir -p release-assets
+          find dist -maxdepth 2 -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name 'ive.vsix' \) -exec cp {} release-assets/ \;
+          ls -lh release-assets/
+      - name: draft GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          draft: true
+          generate_release_notes: true
+          body: |
+            IVE ${{ github.ref_name }}
+
+            Built from commit ${{ github.sha }}.
+
+            - `ive.vsix` — VSCode extension bundle (install with `code --install-extension ive.vsix`)
+            - `ive-daemon-<platform>.*` — analyzer pack (daemon binary + rules). On first launch the extension downloads this to `~/.ive/` (workstream I) — you can drop it there yourself to skip the download.
+
+            See CHANGELOG.md in this tag for what changed.
