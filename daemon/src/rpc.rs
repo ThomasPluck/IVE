@@ -18,7 +18,7 @@
 //! Events are emitted as notifications with method `daemon.event` and the
 //! `DaemonEvent` union as `params`.
 
-use crate::analyzers::{grounding, joern, lsp, pytea, semgrep, slice};
+use crate::analyzers::{grounding, joern, lsp, pytea, rust_analyzer, semgrep, slice};
 use crate::contracts::{
     CacheInvalidateRequest, DaemonEvent, FileRequest, HealthScore, Location, LocationRequest,
     SliceRequest, SummaryRequest,
@@ -308,7 +308,10 @@ pub async fn dispatch_method(
                     "available": tsc_ready,
                     "reason": if tsc_ready { "ready" } else { "tsc not on PATH (npm i -g typescript)" },
                 },
-                "lsp": { "available": false, "reason": "rust-analyzer still stubbed (workstream D)" },
+                "rust-analyzer": {
+                    "available": rust_analyzer::binary_present(),
+                    "reason": if rust_analyzer::binary_present() { "ready" } else { rust_analyzer::degraded_reason() },
+                },
                 "semgrep": {
                     "available": semgrep::binary_present(),
                     "reason": if semgrep::binary_present() { "ready" } else { semgrep::degraded_reason() },
@@ -340,9 +343,14 @@ async fn handle_slice_compute(
     state: &SharedState,
     ev_tx: &mpsc::UnboundedSender<DaemonEvent>,
 ) -> Result<Value, RpcError> {
-    // Cross-file slicing needs the full CPG — we short-circuit before I/O
-    // so callers can probe this without a real file on disk.
+    // Cross-file slicing needs the CPG. When IVE_ENABLE_JOERN flips it on,
+    // we try the Joern subprocess; otherwise degrade cleanly.
     if req.cross_file {
+        if joern::slice_subprocess_enabled() {
+            if let Some(slice) = joern::compute_cross_file_slice(&state.root, &req) {
+                return Ok(serde_json::to_value(slice).expect("serialise joern slice"));
+            }
+        }
         let reason = "cross-file slicing needs the Code Property Graph (workstream C).";
         let _ = ev_tx.send(DaemonEvent::CapabilityDegraded {
             capability: "cpg".into(),

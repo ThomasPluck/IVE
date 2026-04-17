@@ -14,5 +14,6 @@ pub mod hallucination;
 pub mod joern;
 pub mod lsp;
 pub mod pytea;
+pub mod rust_analyzer;
 pub mod semgrep;
 pub mod slice;

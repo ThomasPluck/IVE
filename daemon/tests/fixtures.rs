@@ -407,6 +407,41 @@ async fn semgrep_fixture_flags_multiple_rules_when_installed() {
     }
 }
 
+/// rust-analyzer-backed type diagnostics. Skipped when the binary isn't
+/// on PATH. CI installs it via `rustup component add rust-analyzer`.
+/// We give rust-analyzer up to 20s to run cargo check + publish
+/// diagnostics; on a cold cache this can blow the default test timeout,
+/// so the test is gated on IVE_ENABLE_RUST_ANALYZER_TEST to avoid
+/// regressing CI latency unexpectedly.
+#[tokio::test]
+async fn rust_analyzer_fixture_flags_type_mismatch_when_installed() {
+    if std::env::var("IVE_ENABLE_RUST_ANALYZER_TEST").is_err() {
+        eprintln!("skipping: set IVE_ENABLE_RUST_ANALYZER_TEST=1 to run this test");
+        return;
+    }
+    if !ive_daemon::analyzers::rust_analyzer::binary_present() {
+        eprintln!("skipping: rust-analyzer not on PATH");
+        return;
+    }
+    let dir = isolate(&repo_root().join("test/fixtures/ai-slop/rust_analyzer"));
+    let diagnostics = ive_daemon::analyzers::rust_analyzer::scan_workspace(
+        &dir,
+        std::time::Duration::from_secs(20),
+    )
+    .expect("rust-analyzer should run when present");
+    assert!(
+        !diagnostics.is_empty(),
+        "rust-analyzer must surface at least one diagnostic for the broken fixture"
+    );
+    assert!(
+        diagnostics.iter().any(|d| matches!(
+            d.source,
+            ive_daemon::contracts::DiagnosticSource::RustAnalyzer
+        )),
+        "at least one diagnostic must carry source: RustAnalyzer"
+    );
+}
+
 /// tsc-backed type diagnostics. Skipped when tsc isn't on PATH; ubuntu-
 /// latest ships it via setup-node, and our CI job has the Node toolchain.
 #[tokio::test]

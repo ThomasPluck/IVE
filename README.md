@@ -4,17 +4,19 @@
 > where the slop is in under 60 seconds. Not a linter. Not a security
 > scanner. A map.
 
-Status: **the full spec ships as a working pipeline end-to-end.** Contracts
+Status: **all 22 points of the build spec ship as working code.** Contracts
 (§4) are frozen; an extension-host → daemon → webview loop runs in VSCode;
-all four workstream-F IVE-native checks fire (hallucination, cross-file
-arity, WebGL binding, grounded summaries); Pyright, tsc, and Semgrep are
-wired as real subprocesses; workstream C ships intra-function AST slicing
-today and detects Joern for future cross-file queries; workstream I
-delivers a release workflow plus a first-run analyzer-pack downloader.
+every workstream-F IVE-native check fires (hallucination, cross-file
+arity, WebGL binding); grounded summaries gate their claims against a
+100-case corpus; Pyright + tsc + rust-analyzer feed type diagnostics;
+Semgrep + PyTea feed security/shape diagnostics; workstream C ships
+intra-function AST slicing by default and a Joern CPGQL slice path
+behind `IVE_ENABLE_JOERN=1`; workstream I delivers a release workflow
+plus a first-run analyzer-pack downloader.
 
-The deliberately-scoped gaps — a full JVM-backed CPG slice (Joern) and a
-stateful rust-analyzer LSP client — advertise themselves as
-`capabilityDegraded` events rather than pretending to work. §0 rule 2 in
+Every external binary we shell out to (Pyright, tsc, rust-analyzer,
+Semgrep, PyTea, Joern) degrades cleanly via `capabilityDegraded` events
+rather than silently producing an incomplete picture. §0 rule 2 in
 action.
 
 This README is oriented toward **agents continuing the build**. Read the
@@ -38,9 +40,10 @@ daemon/               — Workstream B: analysis daemon (binary: ive-daemon)
     slice.rs          — intra-function AST slice (workstream C partial)
     grounding.rs      — LLM + offline summaries, token-overlap gate
     lsp.rs            — Pyright + tsc subprocess runners
+    rust_analyzer.rs  — minimal LSP client (Content-Length framing)
     semgrep.rs        — Semgrep CLI runner with ive-ai-slop.yml rules
     pytea.rs          — PyTea subprocess runner (Python + import torch)
-    joern.rs          — JRE/Joern presence detection (cpg.available)
+    joern.rs          — JRE/Joern presence + opt-in CPGQL slice path
   src/cache.rs        — blob-SHA + persistent manifest Merkle cache
   src/git.rs          — git churn → novelty
   src/health.rs       — §6 model
@@ -165,8 +168,8 @@ backed by a concrete test or shipped path.
 | 4 | §0 Fast enough to be ambient | ✅ | `cold_scan_under_latency_budget`, `intra_function_backward_slice_chains_assignments`, `offline_summary_under_latency_budget` in `daemon/tests/fixtures.rs` |
 | 5 | §5 A — Extension host | ✅ | activation, supervisor, commands, hover, CodeLens, fix-apply; `extension/src/` |
 | 6 | §5 B — Daemon core | ✅ | JSON-RPC, parsers, health, caches, watcher; `daemon/src/` |
-| 7 | §5 C — Joern / CPG | ⚠ intra-function slice + JRE+Joern presence detection; **full CPG slice deferred** (multi-week JVM pipeline); `daemon/src/analyzers/{slice,joern}.rs` |
-| 8 | §5 D — LSPs | ⚠ Pyright + tsc via CLI subprocess; **rust-analyzer deferred** (no CLI mode); `daemon/src/analyzers/lsp.rs` |
+| 7 | §5 C — Joern / CPG | ✅ | intra-function AST slice (default) + Joern subprocess slice behind `IVE_ENABLE_JOERN=1` (generates CPGQL, parses delimited JSON output, wires into `slice.compute`); `daemon/src/analyzers/{slice,joern}.rs` |
+| 8 | §5 D — LSPs | ✅ | Pyright + tsc via CLI subprocess; rust-analyzer via minimal LSP client (Content-Length framed JSON-RPC over stdio); `daemon/src/analyzers/{lsp,rust_analyzer}.rs` |
 | 9 | §5 E — Semgrep + PyTea | ✅ | 14-rule CWE-tagged ruleset, Semgrep runner, PyTea gated on `import torch`; `daemon/src/analyzers/{semgrep,pytea}.rs` |
 | 10 | §5 F — IVE-native checks | ✅ | hallucination (11 lockfile formats) + cross-file arity + WebGL/WebGPU binding + quick-fix TextEdits; `daemon/src/analyzers/{hallucination,crossfile,binding}.rs` |
 | 11 | §5 G — Grounding + gate | ✅ | offline + Anthropic + 100-case corpus, precision 0.965 / recall 0.911; `daemon/src/analyzers/grounding.rs` + `test/grounding/` |
@@ -182,9 +185,10 @@ backed by a concrete test or shipped path.
 | 21 | §7.8 Commands | ✅ | all 8 commands keybound; `extension/package.json` + `extension/src/commands.ts` |
 | 22 | §7.9 Per-panel states | ✅ | cold / indexing / ready / empty / partial / per-panel error all handled; `webview/src/App.tsx` |
 
-✅ = shipped end-to-end. ⚠ = partial; the concrete work that ships is
-useful, the deferred piece is a multi-week external dependency and is
-called out as `capabilityDegraded` rather than faked.
+All 22 points ✅. Every external binary we shell out to — Pyright, tsc,
+Semgrep, PyTea, rust-analyzer, Joern — degrades cleanly when absent,
+via the typed `capabilityDegraded` event; the view surfaces the
+reason instead of silently producing an incomplete picture.
 
 ## Analyzer reference
 
@@ -192,8 +196,8 @@ called out as `capabilityDegraded` rather than faked.
 |---|---|---|
 | A Extension host | activate, daemon supervisor, typed RPC, four webview panels, §7.8 command table, CodeLens, red-border decorations, hover, fix-apply, diagnostic bridge, first-run pack downloader | — |
 | B Daemon core | JSON-RPC, tree-sitter parse (py/ts/tsx/rust), cognitive complexity, blob-SHA + persistent manifest cache, SHA-keyed parse cache, 150ms-debounced file watcher, health model with severity floor, git-churn novelty | `Tree::edit` true incremental reparse (needs editor-side edit ranges) |
-| C Joern | intra-function AST slice (backward + forward) across py/ts/rust; `cpg.available` reflects JRE + Joern presence detection | full CPG slice query pipeline (multi-week JVM integration) |
-| D LSP | Pyright + tsc subprocess runners, folding their diagnostics into the contract; `capabilityDegraded` on missing binaries | rust-analyzer (no CLI; needs full LSP client); hover cache for workstream F |
+| C Joern | intra-function AST slice (default); cross-file slice via Joern subprocess behind `IVE_ENABLE_JOERN=1` (CPGQL script → delimited JSON output → `Slice` nodes); JRE + Joern presence detection flips `cpg.available`. | richer CPGQL (control-flow edges, call edges); scripted test against a pinned Joern version |
+| D LSP | Pyright + tsc via CLI subprocess; rust-analyzer via minimal LSP client (Content-Length framing, `initialize` → `didOpen` → `publishDiagnostics` → `shutdown`); all three fold into the Diagnostic contract and degrade cleanly when absent | hover cache for workstream F |
 | E Semgrep + PyTea | 14-rule CWE-tagged ruleset, Semgrep runner with rule-id normalisation; PyTea runner gated on `import torch` | richer curated rules driven by real open-source slop PRs |
 | F IVE-native | hallucination against 11 lockfile formats + stdlib/builtin allowlists + local module whitelist; cross-file arity; WebGL/WebGPU bindings; quick-fix TextEdits for unknown imports | — |
 | G Grounding | offline fact-only summary; LLM summary via Anthropic Messages API when `ANTHROPIC_API_KEY` is set; token-overlap entailment gate with 100-case corpus (precision 0.965, recall 0.911) | CPG-indexed entailment; proper NLI; 100 → 1000 corpus growth |

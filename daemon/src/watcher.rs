@@ -5,7 +5,7 @@
 //! For cold scans and manual rescan we simply iterate — the watcher is only
 //! about delta updates.
 
-use crate::analyzers::{binding, crossfile, hallucination, lsp, pytea, semgrep};
+use crate::analyzers::{binding, crossfile, hallucination, lsp, pytea, rust_analyzer, semgrep};
 use crate::cache::DiskCache;
 use crate::contracts::{DaemonEvent, Diagnostic};
 use crate::events::EventTx;
@@ -143,6 +143,31 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
         vec![]
     };
 
+    // Workspace-wide rust-analyzer pass. Gated on a Cargo.toml existing
+    // (rust-analyzer needs one) and a Rust source file being indexed.
+    // Budget is 15s — rust-analyzer's cold cargo-check can be slow, but
+    // we don't block the rest of the pipeline on it.
+    let has_rust = scanned_map
+        .values()
+        .any(|sf| matches!(sf.language, crate::parser::Language::Rust));
+    let rust_analyzer_diagnostics = if has_rust && state.root.join("Cargo.toml").exists() {
+        match rust_analyzer::scan_workspace(&state.root, std::time::Duration::from_secs(15)) {
+            Some(diags) => {
+                info!(n = diags.len(), "rust-analyzer pass complete");
+                diags
+            }
+            None => {
+                let _ = tx.send(DaemonEvent::CapabilityDegraded {
+                    capability: "rust-analyzer".into(),
+                    reason: rust_analyzer::degraded_reason().into(),
+                });
+                vec![]
+            }
+        }
+    } else {
+        vec![]
+    };
+
     let mut workspace = Workspace::default();
     workspace.lockfiles = lockfiles;
 
@@ -178,6 +203,14 @@ pub async fn rescan_workspace(state: &SharedState, tx: &EventTx) -> anyhow::Resu
         // tsc diagnostics (TypeScript/TSX only).
         diagnostics.extend(
             tsc_diagnostics
+                .iter()
+                .filter(|d| d.location.file == sf.relative_path)
+                .cloned(),
+        );
+
+        // rust-analyzer diagnostics (Rust only).
+        diagnostics.extend(
+            rust_analyzer_diagnostics
                 .iter()
                 .filter(|d| d.location.file == sf.relative_path)
                 .cloned(),
