@@ -42,8 +42,11 @@ for fixture_dir in "$ROOT"/test/fixtures/ai-slop/*/; do
   echo "── fixture: $name"
 
   required="$(required_binary "$name")"
-  if [[ -n "$required" ]] && ! command -v "$required" >/dev/null 2>&1; then
-    echo "  ⤳ skipped: required binary '$required' not on PATH (covered by cargo tests when installed)"
+  # `command -v` is not enough: rustup ships a rust-analyzer shim that
+  # is on PATH but errors out unless `rustup component add rust-analyzer`
+  # has been run. Mirror the daemon's own check (`<bin> --version`).
+  if [[ -n "$required" ]] && ! "$required" --version >/dev/null 2>&1; then
+    echo "  ⤳ skipped: '$required' not usable (binary missing or rustup shim without component)"
     continue
   fi
 
