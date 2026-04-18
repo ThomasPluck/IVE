@@ -1,0 +1,10 @@
+# Intentionally minimal — overrides semgrep's built-in default
+# .semgrepignore (which excludes test/, tests/, vendor/, etc.).
+#
+# IVE owns workspace traversal: the daemon already filters node_modules,
+# target, .git, and .ive in scanner::walk_workspace. We don't want
+# semgrep also applying its own opinion about which files are worth
+# scanning, especially since our test/fixtures/ai-slop/ tree literally
+# exists to be scanned by the semgrep analyzer.
+#
+# If you add real exclusions here, document why.
