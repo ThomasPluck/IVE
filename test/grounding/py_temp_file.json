@@ -1,0 +1,13 @@
+{
+  "id": "py/temp_file",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls tempfile NamedTemporaryFile" },
+    { "id": "f2", "kind": "return_type", "content": "returns str" }
+  ],
+  "summary": "Allocates a tempfile NamedTemporaryFile and returns the path as a string. The tempfile is shared across processes via POSIX mmap.",
+  "labels": [
+    { "sentence": "Allocates a tempfile NamedTemporaryFile and returns the path as a string.", "entailed": true },
+    { "sentence": "The tempfile is shared across processes via POSIX mmap.", "entailed": false }
+  ]
+}

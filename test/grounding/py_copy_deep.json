@@ -1,0 +1,13 @@
+{
+  "id": "py/copy_deep",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls copy deepcopy" },
+    { "id": "f2", "kind": "return_type", "content": "returns T" }
+  ],
+  "summary": "Deep-copies the input via copy deepcopy and returns a new T. Reports allocator pressure to a StatsD sink.",
+  "labels": [
+    { "sentence": "Deep-copies the input via copy deepcopy and returns a new T.", "entailed": true },
+    { "sentence": "Reports allocator pressure to a StatsD sink.", "entailed": false }
+  ]
+}

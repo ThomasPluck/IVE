@@ -1,90 +1,107 @@
-export interface GraphNode {
-  id: number;
-  name: string;
-  kind: string;
-  filePath: string;
-  line: number;
-  endLine: number;
-  loc: number;
-  language: string;
-  complexity?: number;
-  cognitiveComplexity?: number;
-  parameterCount?: number;
-  maxLoopDepth?: number;
-  churnCount?: number;
-  recentChurnCount?: number;
-  diffStatus?: SymbolDiffStatus;
-  isDeadCode?: boolean;
-  fanIn?: number;
-  fanOut?: number;
-  coupling?: number;
-  depthFromEntry?: number;
-  impactRadius?: number;
-  module?: string;
+// Canonical UI-side view of the daemon contract. Imported from the
+// extension-side contracts where possible (keep these in lockstep — any
+// drift is a review-blocking bug).
+
+export type SymbolId = string;
+
+export interface Range {
+  start: [number, number];
+  end: [number, number];
 }
 
-export interface GraphEdge {
-  sourceId: number;
-  targetId: number;
-  kind: 'call';
-  isCycle?: boolean;
+export interface Location {
+  file: string;
+  range: Range;
 }
 
-export interface GraphData {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  rootIds: number[];
+export type Severity = "hint" | "info" | "warning" | "error" | "critical";
+
+export type DiagnosticSource =
+  | "pyright"
+  | "tsc"
+  | "rust-analyzer"
+  | "semgrep"
+  | "pytea"
+  | "glslang"
+  | "ive-hallucination"
+  | "ive-cwe"
+  | "ive-crossfile"
+  | "ive-binding";
+
+export interface Diagnostic {
+  id: string;
+  severity: Severity;
+  source: DiagnosticSource;
+  code: string;
+  message: string;
+  location: Location;
+  symbol?: SymbolId;
+  related?: { location: Location; message: string }[];
+  fix?: { description: string; edits: { location: Location; newText: string }[] };
 }
 
-export type SymbolDiffStatus = 'added' | 'modified' | 'deleted' | 'unchanged';
+export type HealthBucket = "green" | "yellow" | "red";
+export type HealthTarget = SymbolId | { file: string };
 
-export interface ProjectCoverage {
-  totalFunctions: number;
-  reachableCount: number;
-  deadCodeIds: number[];
-  entryPointIds: number[];
-  coveragePercent: number;
+export interface HealthScore {
+  target: HealthTarget;
+  location: Location;
+  novelty: { value: number; daysSinceCreated: number; recentChurnLoc: number };
+  cognitiveComplexity: { value: number; raw: number };
+  coupling: { value: number; fanIn: number; fanOut: number };
+  aiSignal: {
+    value: number;
+    diagnosticCount: number;
+    hallucinatedImports: number;
+    untestedBlastRadius: number;
+  };
+  composite: number;
+  bucket: HealthBucket;
 }
 
-export interface DashboardData {
-  coverage: ProjectCoverage;
-  annotationCount: number;
-  unannotatedNodes: number;
-  unannotatedEdges: number;
-  testCoverage: { tested: number; total: number };
-  architectureStatus: { pass: boolean; violations: number; compliant: number };
-  lastPerf: { totalMs: number; changedFiles: number; totalFiles: number; skipped: boolean } | null;
-  risks: Array<{ id: number; name: string; coupling: number; impact: number; cc: number; file: string }>;
+export type NoteKind = "observation" | "intent" | "question" | "concern";
+export type NoteAuthor = "claude" | "user";
+
+export interface Note {
+  id: string;
+  kind: NoteKind;
+  title: string;
+  body: string;
+  location?: Location;
+  symbol?: SymbolId;
+  severity?: Severity;
+  author: NoteAuthor;
+  createdAt: string;
+  resolvedAt?: string;
 }
 
-export interface NodeDetailData {
-  node: GraphNode;
-  callers: Array<GraphNode & { callLine?: number; callText?: string }>;
-  callees: Array<GraphNode & { callLine?: number; callText?: string }>;
-  annotations: Array<{ tags: string[]; label: string; explanation: string; algorithmicComplexity: string; spatialComplexity: string; pitfalls: string[] }>;
+export type DaemonEvent =
+  | { type: "indexProgress"; filesDone: number; filesTotal: number }
+  | { type: "healthUpdated"; scores: HealthScore[] }
+  | { type: "diagnosticsUpdated"; file: string; diagnostics: Diagnostic[] }
+  | { type: "capabilityDegraded"; capability: string; reason: string }
+  | { type: "capabilityRestored"; capability: string }
+  | { type: "notesUpdated"; notes: Note[] };
+
+export interface WorkspaceState {
+  scores: HealthScore[];
+  diagnostics: Record<string, Diagnostic[]>;
+  capabilities: Record<string, { available: boolean; reason: string }>;
+  notes?: Note[];
 }
 
-export interface DrillEntry {
-  symbolId: number;
-  name: string;
+export type FromExtensionMessage =
+  | { type: "init"; payload: { workspaceName: string } }
+  | { type: "event"; payload: DaemonEvent }
+  | { type: "rpcResult"; id: number; result: unknown }
+  | { type: "rpcError"; id: number; error: { code: number; message: string } }
+  | { type: "workspaceState"; payload: WorkspaceState }
+  | { type: "status"; payload: { phase: "cold" | "indexing" | "ready" | "error"; message?: string } };
+
+export function isFile(t: HealthTarget): t is { file: string } {
+  return typeof t === "object" && t !== null && "file" in t;
 }
 
-export type ExtensionToWebviewMessage =
-  | { type: 'graphData'; data: GraphData }
-  | { type: 'diffData'; data: GraphData }
-  | { type: 'indexProgress'; current: number; total: number }
-  | { type: 'coverageData'; data: ProjectCoverage }
-  | { type: 'dashboard'; data: DashboardData }
-  | { type: 'nodeDetail'; data: NodeDetailData }
-  | { type: 'highlightNodes'; nodeIds: number[] };
-
-export type WebviewToExtensionMessage =
-  | { type: 'ready' }
-  | { type: 'navigate'; filePath: string; line: number }
-  | { type: 'drillDown'; symbolId: number }
-  | { type: 'drillUp'; parentId: number | null }
-  | { type: 'search'; query: string }
-  | { type: 'getDiff' }
-  | { type: 'getCoverage' }
-  | { type: 'showDeadCode' }
-  | { type: 'selectNode'; symbolId: number };
+export function fileOf(t: HealthTarget): string | null {
+  return isFile(t) ? t.file : null;
+}

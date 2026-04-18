@@ -1,0 +1,13 @@
+{
+  "id": "ts/cli_args",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls process argv" },
+    { "id": "f2", "kind": "return_type", "content": "returns Record" }
+  ],
+  "summary": "Parses process argv into a key/value Record and returns it. Automatically merges values from a remote config endpoint.",
+  "labels": [
+    { "sentence": "Parses process argv into a key/value Record and returns it.", "entailed": true },
+    { "sentence": "Automatically merges values from a remote config endpoint.", "entailed": false }
+  ]
+}

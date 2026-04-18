@@ -1,559 +1,493 @@
+/* Terminal-flight-deck aesthetic, per spec §7.1.
+   Dark theme is default; VSCode drives `body.vscode-light` etc.
+   All colour tokens are CSS custom properties so a light theme can override. */
+
+:root {
+  --ive-bg: #0d1117;
+  --ive-surface: #161b22;
+  --ive-border: #30363d;
+  --ive-text: #c9d1d9;
+  --ive-text-dim: #8b949e;
+  --ive-text-faint: #484f58;
+  --ive-green: #3fb950;
+  --ive-yellow: #d29922;
+  --ive-red: #f85149;
+  --ive-blue: #58a6ff;
+  --ive-magenta: #bc8cff;
+}
+
+body.vscode-light {
+  --ive-bg: #ffffff;
+  --ive-surface: #f6f8fa;
+  --ive-border: #d0d7de;
+  --ive-text: #1f2328;
+  --ive-text-dim: #656d76;
+  --ive-text-faint: #8c959f;
+  --ive-green: #1a7f37;
+  --ive-yellow: #9a6700;
+  --ive-red: #cf222e;
+  --ive-blue: #0969da;
+  --ive-magenta: #8250df;
+}
+
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 
-html, body, #root, .ive-app {
-  width: 100%;
-  height: 100vh;
-  overflow: hidden;
+html,
+body,
+#root {
   margin: 0;
   padding: 0;
+  height: 100%;
+  font-family: "Berkeley Mono", "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--ive-text);
+  background: var(--ive-bg);
+  font-feature-settings: "tnum";
+  letter-spacing: -0.005em;
 }
 
-html {
-  background: var(--vscode-sideBar-background, #1e1e1e);
-  color: var(--vscode-sideBar-foreground, #cccccc);
-  font-family: var(--vscode-font-family, system-ui, -apple-system, sans-serif);
-  font-size: var(--vscode-font-size, 13px);
-}
-
-.ive-app {
+.app {
   display: flex;
   flex-direction: column;
-  position: relative;
-}
-
-.ive-container {
-  flex: 1;
-  width: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.ive-loading {
-  align-items: center;
-  justify-content: center;
-  opacity: 0.6;
-}
-
-.ive-progress {
-  padding: 4px 8px;
-  font-size: 11px;
-  opacity: 0.7;
-  text-align: center;
-}
-
-.ive-breadcrumb {
-  display: flex;
-  align-items: center;
-  padding: 4px 6px;
-  font-size: 11px;
-  overflow-x: auto;
-  white-space: nowrap;
-  min-height: 24px;
-  flex-shrink: 0;
-  background: var(--vscode-sideBarSectionHeader-background, rgba(255,255,255,0.05));
-  border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border, rgba(255,255,255,0.1));
-}
-
-.ive-breadcrumb-item {
-  cursor: pointer;
-  padding: 1px 4px;
-  border-radius: 3px;
-  color: var(--vscode-textLink-foreground, #4fc1ff);
-}
-
-.ive-breadcrumb-item:hover {
-  background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.1));
-}
-
-.ive-breadcrumb-sep {
-  margin: 0 2px;
-  opacity: 0.5;
-}
-
-.ive-graph-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 
-.ive-graph-svg {
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.ive-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.5;
-  gap: 6px;
-  font-size: 12px;
-}
-
-.ive-breadcrumb button {
-  background: none;
-  border: none;
-  font: inherit;
-  font-size: 11px;
-}
-
-svg text {
-  user-select: none;
-}
-
-/* Search bar */
-.ive-search-bar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  flex-shrink: 0;
-}
-
-.ive-search-icon {
-  opacity: 0.4;
-  font-size: 14px;
-  line-height: 1;
-  pointer-events: none;
-}
-
-.ive-search-input {
-  flex: 1;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 3px;
-  color: var(--vscode-foreground, #ccc);
-  font: inherit;
-  font-size: 11px;
-  padding: 2px 6px;
-  outline: none;
-}
-
-.ive-search-input:focus {
-  border-color: var(--vscode-focusBorder, #007acc);
-}
-
-.ive-search-clear {
-  background: none;
-  border: none;
-  color: rgba(255,255,255,0.4);
-  cursor: pointer;
-  font-size: 10px;
-  padding: 2px 4px;
-  line-height: 1;
-}
-
-.ive-search-clear:hover {
-  color: var(--vscode-foreground, #ccc);
-}
-
-/* Explain path button in breadcrumb */
-.ive-explain-btn {
-  margin-left: auto;
-  background: none;
-  border: 1px solid rgba(200,130,0,0.4);
-  border-radius: 3px;
-  color: #c87a00;
-  cursor: pointer;
-  font: inherit;
-  font-size: 10px;
-  padding: 1px 6px;
-  opacity: 0.85;
-}
-
-.ive-explain-btn:hover {
-  opacity: 1;
-  background: rgba(200,130,0,0.1);
-}
-
-/* Explanation panel */
-.ive-explanation-panel {
-  flex-shrink: 0;
-  border-top: 1px solid rgba(200,130,0,0.3);
-  background: rgba(200,130,0,0.05);
-  max-height: 120px;
-  display: flex;
-  flex-direction: column;
-}
-
-.ive-explanation-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 8px;
-  font-size: 10px;
-  opacity: 0.7;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-
-.ive-explanation-dismiss {
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  font-size: 10px;
-  opacity: 0.6;
-  padding: 0 2px;
-}
-
-.ive-explanation-dismiss:hover { opacity: 1; }
-
-.ive-explanation-body {
-  padding: 6px 10px;
-  font-size: 11px;
-  line-height: 1.5;
-  overflow-y: auto;
-  color: var(--vscode-foreground, #ccc);
-}
-
-.ive-explanation-loading {
-  opacity: 0.5;
-  font-style: italic;
-}
-
-/* Diff toggle button in breadcrumb */
-.ive-diff-btn {
-  margin-left: auto;
-  background: none;
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 3px;
-  color: rgba(255,255,255,0.5);
-  cursor: pointer;
-  font: inherit;
-  font-size: 10px;
-  padding: 1px 6px;
-}
-
-.ive-diff-btn:hover {
-  color: var(--vscode-foreground, #ccc);
-  border-color: rgba(255,255,255,0.4);
-}
-
-.ive-diff-btn--active {
-  border-color: rgba(200,130,0,0.6);
-  color: #c87a00;
-}
-
-.ive-diff-btn--active:hover {
-  background: rgba(200,130,0,0.1);
-}
-
-/* Coverage panel */
-.ive-coverage-panel {
+.app-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 3px 8px;
-  font-size: 10px;
-  opacity: 0.8;
-  background: var(--vscode-sideBarSectionHeader-background, rgba(255,255,255,0.03));
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  flex-shrink: 0;
-  white-space: nowrap;
-  overflow-x: auto;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ive-border);
+  background: var(--ive-surface);
 }
 
-.ive-coverage-stat {
-  color: var(--vscode-foreground, #ccc);
-}
-
-.ive-coverage-stat strong {
-  color: var(--vscode-textLink-foreground, #4fc1ff);
-}
-
-.ive-coverage-dead {
-  background: none;
-  border: 1px solid rgba(139,26,26,0.5);
-  border-radius: 3px;
-  color: #c84040;
-  cursor: pointer;
-  font: inherit;
-  font-size: 10px;
-  padding: 0 5px;
-}
-
-.ive-coverage-dead:hover {
-  background: rgba(139,26,26,0.15);
-  color: #e05050;
-}
-
-.ive-coverage-dim { opacity: 0.6; }
-.ive-coverage-warn { color: #c87a00; }
-
-/* Legend */
-.ive-legend {
-  display: flex;
-  gap: 6px;
-  margin-left: auto;
-  opacity: 0.6;
-}
-
-.ive-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 9px;
-}
-
-.ive-legend-swatch {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  display: inline-block;
-}
-
-.ive-legend-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-/* Node detail panel */
-.ive-detail-panel {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 260px;
-  background: var(--vscode-sideBar-background, #1e1e1e);
-  border-left: 1px solid rgba(255,255,255,0.1);
-  display: flex;
-  flex-direction: column;
-  z-index: 10;
-  overflow-y: auto;
-}
-
-.ive-detail-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-}
-
-.ive-detail-title {
+.brand {
   font-weight: 600;
-  font-size: 13px;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  letter-spacing: -0.01em;
 }
 
-.ive-detail-kind {
-  font-size: 10px;
-  opacity: 0.5;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: rgba(255,255,255,0.06);
-}
-
-.ive-detail-close {
-  background: none;
-  border: none;
-  color: rgba(255,255,255,0.4);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 2px;
-}
-
-.ive-detail-close:hover { color: var(--vscode-foreground, #ccc); }
-
-.ive-detail-body {
-  padding: 8px 10px;
+.phase {
   font-size: 11px;
+  padding: 2px 6px;
+  border: 1px solid var(--ive-border);
+  color: var(--ive-text-dim);
+}
+
+.phase-ready { color: var(--ive-green); border-color: var(--ive-green); }
+.phase-indexing { color: var(--ive-yellow); border-color: var(--ive-yellow); }
+.phase-error { color: var(--ive-red); border-color: var(--ive-red); }
+
+progress {
+  flex: 1;
+  height: 4px;
+}
+
+.dim { color: var(--ive-text-dim); }
+.empty {
+  padding: 16px;
+  color: var(--ive-text-dim);
+  text-align: center;
+}
+
+.banner {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ive-border);
+  font-size: 11px;
+}
+.banner-warn { background: rgba(210, 153, 34, 0.1); color: var(--ive-yellow); }
+.banner-error { background: rgba(248, 81, 73, 0.1); color: var(--ive-red); }
+
+.panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  border-bottom: 1px solid var(--ive-border);
+  min-height: 80px;
 }
 
-.ive-detail-file {
-  background: none;
+.panel > header {
+  padding: 6px 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid var(--ive-border);
+  background: var(--ive-surface);
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.panel-body {
+  position: relative;
+  flex: 1;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+.panel-treemap { flex: 2; min-height: 240px; }
+.panel-diagnostics { flex: 1.2; min-height: 160px; }
+.panel-summary { flex: 1; min-height: 120px; }
+.panel-slice { flex: 0.8; min-height: 80px; }
+.panel-vibe { flex: 1; min-height: 140px; }
+
+/* Treemap */
+.treemap-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--ive-text-dim);
+  border-bottom: 1px solid var(--ive-border);
+  background: var(--ive-surface);
+  min-height: 24px;
+}
+.crumb {
+  background: transparent;
+  color: var(--ive-text-dim);
   border: none;
-  color: var(--vscode-textLink-foreground, #4fc1ff);
-  cursor: pointer;
   font: inherit;
-  font-size: 10px;
-  text-align: left;
+  cursor: pointer;
   padding: 0;
 }
+.crumb:hover { color: var(--ive-text); }
+.crumb.active { color: var(--ive-text); }
+.crumb-sep { color: var(--ive-text-faint); }
 
-.ive-detail-file:hover { text-decoration: underline; }
-
-.ive-detail-summary {
-  font-size: 11px;
-  opacity: 0.7;
-  font-style: italic;
-  line-height: 1.4;
-}
-
-.ive-detail-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.ive-detail-label {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  opacity: 0.5;
-}
-
-.ive-detail-value {
-  font-size: 11px;
-}
-
-.ive-detail-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
-}
-
-.ive-detail-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 4px;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.04);
-}
-
-.ive-detail-stat--warn {
-  background: rgba(200,130,0,0.12);
-  border: 1px solid rgba(200,130,0,0.3);
-}
-
-.ive-detail-stat-value {
-  font-size: 14px;
-  font-weight: 600;
-  font-family: monospace;
-}
-
-.ive-detail-stat--warn .ive-detail-stat-value { color: #c87a00; }
-
-.ive-detail-stat-label {
-  font-size: 8px;
-  opacity: 0.5;
-  text-transform: uppercase;
-}
-
-.ive-detail-warning {
-  padding: 6px 8px;
-  border-radius: 4px;
-  background: rgba(139,26,26,0.15);
-  border: 1px solid rgba(139,26,26,0.4);
-  color: #c84040;
-  font-size: 10px;
-}
-
-.ive-detail-module {
-  font-size: 10px;
-  opacity: 0.5;
-  padding: 1px 4px;
-  background: rgba(255,255,255,0.04);
-  border-radius: 3px;
-  display: inline-block;
-}
-
-/* Annotations in detail panel */
-.ive-detail-annotation {
-  padding: 6px 8px;
-  border-radius: 4px;
-  background: rgba(200,130,0,0.08);
-  border: 1px solid rgba(200,130,0,0.2);
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.ive-detail-ann-tags {
-  font-size: 9px;
-  color: #c87a00;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.ive-detail-ann-label {
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.ive-detail-ann-explanation {
-  font-size: 10px;
-  opacity: 0.7;
-  line-height: 1.4;
-}
-
-.ive-detail-ann-meta {
-  font-size: 9px;
-  font-family: monospace;
-  opacity: 0.6;
-}
-
-.ive-detail-ann-pitfalls {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.ive-detail-ann-pitfall {
-  font-size: 9px;
-  color: #c84040;
-  padding-left: 8px;
-  border-left: 2px solid rgba(200,64,64,0.3);
-}
-
-/* Caller/callee references */
-.ive-detail-ref {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  background: none;
-  border: none;
-  border-left: 2px solid rgba(255,255,255,0.1);
-  padding: 3px 8px;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-}
-
-.ive-detail-ref:hover {
-  background: rgba(255,255,255,0.05);
-  border-left-color: var(--vscode-textLink-foreground, #4fc1ff);
-}
-
-.ive-detail-ref-name {
-  font-size: 11px;
-  color: var(--vscode-textLink-foreground, #4fc1ff);
-}
-
-.ive-detail-ref-line {
-  font-size: 10px;
-  opacity: 0.5;
-  font-family: monospace;
-}
-
-.ive-detail-ref-text {
-  font-size: 9px;
-  opacity: 0.4;
-  font-family: monospace;
-  white-space: nowrap;
+.treemap {
+  position: relative;
+  flex: 1;
+  width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 220px;
 }
+.treemap svg { display: block; }
+
+.tooltip {
+  position: fixed;
+  z-index: 20;
+  background: var(--ive-surface);
+  border: 1px solid var(--ive-border);
+  padding: 6px 8px;
+  font-size: 11px;
+  pointer-events: none;
+  max-width: 320px;
+}
+.bucket-green { color: var(--ive-green); }
+.bucket-yellow { color: var(--ive-yellow); }
+.bucket-red { color: var(--ive-red); }
+
+/* Diagnostics */
+.diagnostics { padding: 0 8px; }
+.filter-bar {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 8px 8px;
+  border-bottom: 1px solid var(--ive-border);
+}
+.chip {
+  border: 1px solid var(--ive-border);
+  background: transparent;
+  color: var(--ive-text-dim);
+  padding: 2px 8px;
+  font: inherit;
+  cursor: pointer;
+}
+.chip.active { color: var(--ive-text); border-color: var(--ive-blue); }
+.chip.excluded { color: var(--ive-text-faint); text-decoration: line-through; }
+.chip-count { color: var(--ive-text-faint); margin-left: 4px; }
+
+.severity-group { margin: 8px 0; }
+.severity-group > header { padding: 0 8px 4px; color: var(--ive-text-dim); }
+
+.severity-critical > header { color: var(--ive-red); }
+.severity-error > header { color: var(--ive-red); }
+.severity-warning > header { color: var(--ive-yellow); }
+
+.diag {
+  list-style: none;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+}
+.diag:hover { background: var(--ive-surface); }
+.diag:focus-visible { outline: 1px solid var(--ive-blue); }
+.diag.selected { background: var(--ive-surface); outline: 1px solid var(--ive-blue); }
+.diag.severity-critical { border-left-color: var(--ive-red); }
+.diag.severity-error    { border-left-color: var(--ive-red); }
+.diag.severity-warning  { border-left-color: var(--ive-yellow); }
+
+.diagnostics:focus-visible { outline: none; }
+
+.diag-top { display: flex; gap: 8px; align-items: baseline; }
+.diag-code { color: var(--ive-text-dim); font-size: 11px; }
+.diag-message { flex: 1; }
+.diag-loc { color: var(--ive-text-dim); font-size: 11px; white-space: nowrap; }
+.diag-fix { color: var(--ive-blue); font-size: 11px; margin-top: 2px; }
+
+/* Summary */
+.summary-action {
+  margin-left: auto;
+  background: transparent;
+  color: var(--ive-blue);
+  border: 1px solid var(--ive-border);
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.summary-action:hover { color: var(--ive-text); border-color: var(--ive-blue); }
+.summary-action:disabled { opacity: 0.5; cursor: default; }
+
+.summary { padding: 8px 12px; }
+.summary > header { margin-bottom: 8px; }
+.summary-text { margin: 0; white-space: pre-wrap; font: inherit; }
+.claim-bad { color: var(--ive-text-faint); text-decoration: line-through; }
+.facts { margin-top: 12px; border-top: 1px solid var(--ive-border); padding-top: 8px; }
+.facts ul { margin: 0; padding-left: 16px; }
+.fact-kind { color: var(--ive-text-dim); margin-right: 6px; }
+.summary footer { margin-top: 8px; font-size: 11px; }
+.summary-empty { padding: 16px; color: var(--ive-text-dim); }
+.degraded { color: var(--ive-yellow); font-size: 11px; }
+
+/* Slice */
+.slice-empty { padding: 16px; color: var(--ive-text-dim); }
+.slice { display: flex; flex-direction: column; height: 100%; }
+.slice-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  font-size: 11px;
+  border-bottom: 1px solid var(--ive-border);
+  background: var(--ive-surface);
+}
+.slice-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow: auto;
+  flex: 1;
+}
+.slice-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.slice-row:hover { background: var(--ive-surface); }
+.slice-row:focus-visible { outline: 1px solid var(--ive-blue); }
+.slice-dot { color: var(--ive-blue); width: 1em; text-align: center; }
+.slice-label { flex: 1; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.slice-loc { white-space: nowrap; font-size: 11px; }
+.banner-inline { color: var(--ive-yellow); font-size: 11px; }
+
+/* Per-panel error (spec §7.9 state 6) */
+.panel-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(248, 81, 73, 0.12);
+  color: var(--ive-red);
+  font-size: 11px;
+  border-bottom: 1px solid var(--ive-border);
+}
+.panel-error-dismiss {
+  background: transparent;
+  color: var(--ive-red);
+  border: 1px solid var(--ive-red);
+  padding: 1px 6px;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.panel-error-dismiss:hover {
+  color: var(--ive-bg);
+  background: var(--ive-red);
+}
+
+/* Vibe — Claude ↔ user note feed (spec §0 rule 4, bond-by-legibility) */
+.vibe-empty {
+  padding: 16px;
+  color: var(--ive-text-dim);
+}
+.vibe-empty code {
+  color: var(--ive-text);
+  background: var(--ive-surface);
+  padding: 1px 4px;
+}
+.vibe-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+  overflow: auto;
+  height: 100%;
+}
+.vibe-row {
+  cursor: pointer;
+  padding: 8px 12px;
+  border-left: 3px solid var(--ive-border);
+  border-bottom: 1px solid var(--ive-border);
+  transition: background 120ms linear;
+}
+.vibe-row:hover { background: var(--ive-surface); }
+.vibe-row:focus-visible { outline: 1px solid var(--ive-blue); }
+
+.vibe-row.note-observation { border-left-color: var(--ive-blue); }
+.vibe-row.note-intent      { border-left-color: var(--ive-magenta); }
+.vibe-row.note-question    { border-left-color: var(--ive-yellow); }
+.vibe-row.note-concern     { border-left-color: var(--ive-yellow); }
+
+.vibe-row.note-critical, .vibe-row.note-error { border-left-color: var(--ive-red); }
+.vibe-row.note-warning                         { border-left-color: var(--ive-yellow); }
+
+.vibe-top {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 11px;
+}
+.vibe-glyph { width: 1em; text-align: center; }
+.vibe-kind {
+  color: var(--ive-text-dim);
+  text-transform: lowercase;
+  letter-spacing: -0.01em;
+}
+.vibe-author { font-size: 11px; }
+.vibe-spacer { flex: 1; }
+
+.vibe-resolve {
+  background: transparent;
+  color: var(--ive-text-dim);
+  border: 1px solid var(--ive-border);
+  font: inherit;
+  font-size: 10px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+.vibe-resolve:hover {
+  color: var(--ive-green);
+  border-color: var(--ive-green);
+}
+
+.vibe-title {
+  margin: 4px 0 2px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.vibe-body {
+  color: var(--ive-text-dim);
+  margin-bottom: 4px;
+  white-space: pre-wrap;
+}
+.vibe-loc {
+  font-size: 11px;
+}
+
+/* Attention primitives — how Claude points at the UI.
+   Spec §0 principle: the bond survives only if the user can see where
+   the agent is looking. Four layered cues:
+     1. spotlight ring  — pulsing colour on the anchored tile
+     2. focus dim       — everything else fades out on note click
+     3. agent presence  — header dot + relative-time text
+     4. focus-reset     — one-click escape back to the full treemap  */
+
+@keyframes ive-spotlight-pulse {
+  0%   { stroke-opacity: 0.35; }
+  50%  { stroke-opacity: 1.0; }
+  100% { stroke-opacity: 0.35; }
+}
+
+.spotlight-ring {
+  animation: ive-spotlight-pulse 2.1s ease-in-out infinite;
+  /* Prefer-reduced-motion users get a steady ring, no pulse. */
+}
+@media (prefers-reduced-motion: reduce) {
+  .spotlight-ring { animation: none; stroke-opacity: 0.8; }
+}
+
+.tile-dimmed rect:first-child { fill-opacity: 0.15; }
+.tile-dimmed .spotlight-ring  { animation: none; stroke-opacity: 0.25; }
+
+.tile-focused rect:first-child {
+  /* The focused tile keeps its full colour and gets a bright 2px inner
+     border so the user's eye lands there even mid-scan. */
+  fill-opacity: 1.0;
+}
+
+.focus-reset {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  z-index: 2;
+  background: var(--ive-surface);
+  color: var(--ive-blue);
+  border: 1px solid var(--ive-blue);
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.focus-reset:hover { background: var(--ive-blue); color: var(--ive-bg); }
+
+/* Agent presence — shows in the header when any note-posting activity
+   has happened. Three colour states driven by class. */
+.agent-presence {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ive-text-dim);
+  letter-spacing: -0.01em;
+}
+.agent-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ive-text-faint);
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.agent-live   .agent-dot { background: var(--ive-green); animation: ive-agent-pulse 1.4s ease-in-out infinite; }
+.agent-live              { color: var(--ive-green); }
+.agent-recent .agent-dot { background: var(--ive-green); opacity: 0.6; }
+.agent-recent            { color: var(--ive-text-dim); }
+.agent-idle   .agent-dot { background: var(--ive-text-faint); }
+.agent-idle              { color: var(--ive-text-faint); }
+
+@keyframes ive-agent-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.55); }
+  70%  { box-shadow: 0 0 0 6px rgba(63, 185, 80, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-dot { animation: none !important; }
+}
+
+/* Vibe row arrival — first render after a notesUpdated fade-in so the
+   user notices new notes without having to spot them in place. */
+.vibe-row {
+  animation: ive-note-arrive 280ms ease-out;
+}
+@keyframes ive-note-arrive {
+  0%   { opacity: 0; transform: translateX(-4px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vibe-row { animation: none; }
+}
+
+/* Treemap wrap needs position:relative so the focus-reset button can
+   anchor to its bottom-right. */
+.treemap-wrap { position: relative; }

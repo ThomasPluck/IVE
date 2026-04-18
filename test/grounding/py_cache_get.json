@@ -1,0 +1,13 @@
+{
+  "id": "py/cache_get",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls redis get" },
+    { "id": "f2", "kind": "return_type", "content": "returns Optional bytes" }
+  ],
+  "summary": "Fetches the value from redis with get and returns Optional bytes. Refreshes the key's TTL automatically.",
+  "labels": [
+    { "sentence": "Fetches the value from redis with get and returns Optional bytes.", "entailed": true },
+    { "sentence": "Refreshes the key's TTL automatically.", "entailed": false }
+  ]
+}

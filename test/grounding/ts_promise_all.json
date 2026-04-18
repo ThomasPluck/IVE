@@ -1,0 +1,13 @@
+{
+  "id": "ts/promise_all",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls Promise all" },
+    { "id": "f2", "kind": "return_type", "content": "returns Promise" }
+  ],
+  "summary": "Waits on all the input promises via Promise all and returns the combined Promise. Rolls back finished promises when one rejects.",
+  "labels": [
+    { "sentence": "Waits on all the input promises via Promise all and returns the combined Promise.", "entailed": true },
+    { "sentence": "Rolls back finished promises when one rejects.", "entailed": false }
+  ]
+}

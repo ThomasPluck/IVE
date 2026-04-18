@@ -1,0 +1,13 @@
+{
+  "id": "py/base64_encode",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls base64 b64encode" },
+    { "id": "f2", "kind": "return_type", "content": "returns bytes" }
+  ],
+  "summary": "Encodes the input via base64 b64encode and returns the resulting bytes. Also signs the value with HMAC.",
+  "labels": [
+    { "sentence": "Encodes the input via base64 b64encode and returns the resulting bytes.", "entailed": true },
+    { "sentence": "Also signs the value with HMAC.", "entailed": false }
+  ]
+}

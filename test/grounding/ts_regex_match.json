@@ -1,0 +1,13 @@
+{
+  "id": "ts/regex_match",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls RegExp test" },
+    { "id": "f2", "kind": "return_type", "content": "returns boolean" }
+  ],
+  "summary": "Tests the input against the compiled RegExp via RegExp test and returns a boolean. Also persists each test outcome to a column store.",
+  "labels": [
+    { "sentence": "Tests the input against the compiled RegExp via RegExp test and returns a boolean.", "entailed": true },
+    { "sentence": "Also persists each test outcome to a column store.", "entailed": false }
+  ]
+}

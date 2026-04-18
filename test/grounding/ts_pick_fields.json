@@ -1,0 +1,13 @@
+{
+  "id": "ts/pick_fields",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function pick (5 LOC)" },
+    { "id": "f2", "kind": "return_type", "content": "returns Partial" }
+  ],
+  "summary": "Projects the requested keys from the source object and returns a Partial. Also records each access in a tracing log.",
+  "labels": [
+    { "sentence": "Projects the requested keys from the source object and returns a Partial.", "entailed": true },
+    { "sentence": "Also records each access in a tracing log.", "entailed": false }
+  ]
+}

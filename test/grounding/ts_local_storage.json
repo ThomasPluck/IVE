@@ -1,0 +1,14 @@
+{
+  "id": "ts/local_storage",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls localStorage getItem" },
+    { "id": "f2", "kind": "call", "content": "calls JSON parse" },
+    { "id": "f3", "kind": "return_type", "content": "returns unknown" }
+  ],
+  "summary": "Reads the stored value with localStorage getItem and parses it via JSON parse, returning the unknown payload. Pushes usage analytics to the server.",
+  "labels": [
+    { "sentence": "Reads the stored value with localStorage getItem and parses it via JSON parse, returning the unknown payload.", "entailed": true },
+    { "sentence": "Pushes usage analytics to the server.", "entailed": false }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "ts/websocket_send",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls WebSocket send" },
+    { "id": "f2", "kind": "call", "content": "calls JSON stringify" }
+  ],
+  "summary": "Serialises the message with JSON stringify and ships it through WebSocket send. Uses a sliding-window congestion control under load.",
+  "labels": [
+    { "sentence": "Serialises the message with JSON stringify and ships it through WebSocket send.", "entailed": true },
+    { "sentence": "Uses a sliding-window congestion control under load.", "entailed": false }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "ts/object_entries",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls Object entries" },
+    { "id": "f2", "kind": "return_type", "content": "returns Array" }
+  ],
+  "summary": "Materialises the object's key-value pairs via Object entries and returns them as an Array. Also synchronises changes to a remote config service.",
+  "labels": [
+    { "sentence": "Materialises the object's key-value pairs via Object entries and returns them as an Array.", "entailed": true },
+    { "sentence": "Also synchronises changes to a remote config service.", "entailed": false }
+  ]
+}

@@ -1,0 +1,8 @@
+expected_diagnostics:
+  - code: ive-hallucination/unknown-import
+    module: imaginary_crate
+    severity: critical
+expected_file_bucket: yellow_or_red
+expected_function_names:
+  - compute
+  - main

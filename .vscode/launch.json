@@ -5,9 +5,32 @@
       "name": "Run Extension",
       "type": "extensionHost",
       "request": "launch",
-      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
-      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-      "preLaunchTask": "npm: build"
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/extension"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/extension/dist/**/*.js"
+      ],
+      "preLaunchTask": "build:all",
+      "env": {
+        "IVE_DAEMON_PATH": "${workspaceFolder}/target/release/ive-daemon"
+      }
+    },
+    {
+      "name": "Run Extension + Fixture Workspace",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/extension",
+        "${workspaceFolder}/test/fixtures/ai-slop/python"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/extension/dist/**/*.js"
+      ],
+      "preLaunchTask": "build:all",
+      "env": {
+        "IVE_DAEMON_PATH": "${workspaceFolder}/target/release/ive-daemon"
+      }
     }
   ]
 }

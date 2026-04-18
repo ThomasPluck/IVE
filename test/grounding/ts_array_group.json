@@ -1,0 +1,13 @@
+{
+  "id": "ts/array_group",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls reduce" },
+    { "id": "f2", "kind": "signature", "content": "function groupBy (6 LOC)" }
+  ],
+  "summary": "Groups array elements with reduce and returns a record keyed by the group value. Persists the grouping to browser storage.",
+  "labels": [
+    { "sentence": "Groups array elements with reduce and returns a record keyed by the group value.", "entailed": true },
+    { "sentence": "Persists the grouping to browser storage.", "entailed": false }
+  ]
+}

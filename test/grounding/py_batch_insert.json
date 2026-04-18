@@ -1,0 +1,14 @@
+{
+  "id": "py/batch_insert",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls cursor executemany" },
+    { "id": "f2", "kind": "call", "content": "calls conn commit" },
+    { "id": "f3", "kind": "signature", "content": "function insert_batch (7 LOC)" }
+  ],
+  "summary": "Inserts the rows via cursor executemany and commits the transaction with conn commit. Automatically retries transient failures for up to one minute.",
+  "labels": [
+    { "sentence": "Inserts the rows via cursor executemany and commits the transaction with conn commit.", "entailed": true },
+    { "sentence": "Automatically retries transient failures for up to one minute.", "entailed": false }
+  ]
+}

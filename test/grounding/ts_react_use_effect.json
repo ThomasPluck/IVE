@@ -1,0 +1,13 @@
+{
+  "id": "ts/react_use_effect",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls useEffect" },
+    { "id": "f2", "kind": "call", "content": "calls fetch" }
+  ],
+  "summary": "Runs fetch inside useEffect on mount and returns the cleanup function. The returned cleanup also reports component metrics to an APM service.",
+  "labels": [
+    { "sentence": "Runs fetch inside useEffect on mount and returns the cleanup function.", "entailed": true },
+    { "sentence": "The returned cleanup also reports component metrics to an APM service.", "entailed": false }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "ts/event_emit",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls EventEmitter emit" },
+    { "id": "f2", "kind": "signature", "content": "function emitUserAction (5 LOC)" }
+  ],
+  "summary": "Broadcasts the action via EventEmitter emit. Also updates the Redux store directly.",
+  "labels": [
+    { "sentence": "Broadcasts the action via EventEmitter emit.", "entailed": true },
+    { "sentence": "Also updates the Redux store directly.", "entailed": false }
+  ]
+}

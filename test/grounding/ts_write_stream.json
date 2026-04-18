@@ -1,0 +1,13 @@
+{
+  "id": "ts/write_stream",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls fs createWriteStream" },
+    { "id": "f2", "kind": "call", "content": "calls stream write" }
+  ],
+  "summary": "Opens a write stream via fs createWriteStream and writes chunks through stream write. Rotates the file at midnight UTC.",
+  "labels": [
+    { "sentence": "Opens a write stream via fs createWriteStream and writes chunks through stream write.", "entailed": true },
+    { "sentence": "Rotates the file at midnight UTC.", "entailed": false }
+  ]
+}

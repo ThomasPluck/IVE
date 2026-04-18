@@ -1,0 +1,13 @@
+{
+  "id": "py/async_gather",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls asyncio gather" },
+    { "id": "f2", "kind": "return_type", "content": "returns list" }
+  ],
+  "summary": "Runs the coroutines concurrently with asyncio gather and returns a list of results. Cancels all pending tasks if one raises.",
+  "labels": [
+    { "sentence": "Runs the coroutines concurrently with asyncio gather and returns a list of results.", "entailed": true },
+    { "sentence": "Cancels all pending tasks if one raises.", "entailed": false }
+  ]
+}

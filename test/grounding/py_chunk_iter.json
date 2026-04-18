@@ -1,0 +1,13 @@
+{
+  "id": "py/chunk_iter",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function chunks (7 LOC)" },
+    { "id": "f2", "kind": "call", "content": "calls itertools islice" }
+  ],
+  "summary": "Slices the iterable into fixed-size chunks using itertools islice and yields each chunk. Pauses yielding when CPU usage exceeds 80 percent.",
+  "labels": [
+    { "sentence": "Slices the iterable into fixed-size chunks using itertools islice and yields each chunk.", "entailed": true },
+    { "sentence": "Pauses yielding when CPU usage exceeds 80 percent.", "entailed": false }
+  ]
+}

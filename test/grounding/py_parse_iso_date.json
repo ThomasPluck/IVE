@@ -1,0 +1,15 @@
+{
+  "id": "py/parse_iso_date",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls datetime fromisoformat" },
+    { "id": "f2", "kind": "raises", "content": "raises ValueError" },
+    { "id": "f3", "kind": "return_type", "content": "returns datetime" }
+  ],
+  "summary": "Parses an ISO 8601 string using datetime fromisoformat and returns a datetime. Raises ValueError if the input is malformed. Also writes a metric to Prometheus.",
+  "labels": [
+    { "sentence": "Parses an ISO 8601 string using datetime fromisoformat and returns a datetime.", "entailed": true },
+    { "sentence": "Raises ValueError if the input is malformed.", "entailed": true },
+    { "sentence": "Also writes a metric to Prometheus.", "entailed": false }
+  ]
+}

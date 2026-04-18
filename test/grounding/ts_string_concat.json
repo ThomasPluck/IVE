@@ -1,0 +1,13 @@
+{
+  "id": "ts/string_concat",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls array join" },
+    { "id": "f2", "kind": "return_type", "content": "returns string" }
+  ],
+  "summary": "Concatenates the string fragments with array join and returns the string. Records a diff against the previous concatenation result.",
+  "labels": [
+    { "sentence": "Concatenates the string fragments with array join and returns the string.", "entailed": true },
+    { "sentence": "Records a diff against the previous concatenation result.", "entailed": false }
+  ]
+}

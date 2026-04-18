@@ -1,0 +1,12 @@
+{
+  "id": "ts/capitalize",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls String charAt" },
+    { "id": "f2", "kind": "call", "content": "calls String toUpperCase" }
+  ],
+  "summary": "Uppercases the first character via String charAt and String toUpperCase and returns the new string.",
+  "labels": [
+    { "sentence": "Uppercases the first character via String charAt and String toUpperCase and returns the new string.", "entailed": true }
+  ]
+}

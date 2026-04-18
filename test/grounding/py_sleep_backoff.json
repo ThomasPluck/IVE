@@ -1,0 +1,13 @@
+{
+  "id": "py/sleep_backoff",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls time sleep" },
+    { "id": "f2", "kind": "signature", "content": "function backoff (5 LOC)" }
+  ],
+  "summary": "Sleeps via time sleep for exponentially-growing intervals between attempts. Emits a custom Prometheus histogram of sleep durations.",
+  "labels": [
+    { "sentence": "Sleeps via time sleep for exponentially-growing intervals between attempts.", "entailed": true },
+    { "sentence": "Emits a custom Prometheus histogram of sleep durations.", "entailed": false }
+  ]
+}

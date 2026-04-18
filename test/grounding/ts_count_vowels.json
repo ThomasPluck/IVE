@@ -1,0 +1,13 @@
+{
+  "id": "ts/count_vowels",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls string match" },
+    { "id": "f2", "kind": "return_type", "content": "returns number" }
+  ],
+  "summary": "Counts vowels by applying string match with a character class and returns the number. Also streams a heatmap of positions to a dashboard.",
+  "labels": [
+    { "sentence": "Counts vowels by applying string match with a character class and returns the number.", "entailed": true },
+    { "sentence": "Also streams a heatmap of positions to a dashboard.", "entailed": false }
+  ]
+}

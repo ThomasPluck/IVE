@@ -1,0 +1,13 @@
+{
+  "id": "ts/url_origin",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls URL constructor" },
+    { "id": "f2", "kind": "return_type", "content": "returns string" }
+  ],
+  "summary": "Parses the input URL via URL constructor and returns the origin string. Also strips the path and query before returning.",
+  "labels": [
+    { "sentence": "Parses the input URL via URL constructor and returns the origin string.", "entailed": true },
+    { "sentence": "Also strips the path and query before returning.", "entailed": true }
+  ]
+}

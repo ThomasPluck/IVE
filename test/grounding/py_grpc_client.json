@@ -1,0 +1,13 @@
+{
+  "id": "py/grpc_client",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls grpc insecure_channel" },
+    { "id": "f2", "kind": "import", "content": "imports grpc" }
+  ],
+  "summary": "Opens a grpc insecure_channel against the provided address and returns the channel. Also enforces deadline propagation end-to-end.",
+  "labels": [
+    { "sentence": "Opens a grpc insecure_channel against the provided address and returns the channel.", "entailed": true },
+    { "sentence": "Also enforces deadline propagation end-to-end.", "entailed": false }
+  ]
+}

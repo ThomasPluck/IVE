@@ -1,0 +1,6 @@
+expected_diagnostics:
+  - code: ive-crossfile/arity-mismatch
+    function: compute
+    severity: error
+expected_non_offenders:
+  - log_event  # uses default arg, only one given is fine

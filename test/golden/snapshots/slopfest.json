@@ -1,0 +1,34 @@
+{
+  "files": [
+    {
+      "path": "app.py",
+      "loc": 20,
+      "functions": [
+        {
+          "name": "fetch",
+          "cc": 7
+        },
+        {
+          "name": "work",
+          "cc": 0
+        }
+      ]
+    }
+  ],
+  "diagnostics": [
+    {
+      "file": "app.py",
+      "line": 2,
+      "code": "ive-hallucination/unknown-import",
+      "severity": "critical",
+      "message_prefix": "no package 'madeup_llm_thing' in requirements.txt / pyproject.toml"
+    }
+  ],
+  "file_scores": [
+    {
+      "path": "app.py",
+      "bucket": "yellow",
+      "composite_hundredths": 40
+    }
+  ]
+}

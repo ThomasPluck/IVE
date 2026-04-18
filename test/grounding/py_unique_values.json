@@ -1,0 +1,13 @@
+{
+  "id": "py/unique_values",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls set" },
+    { "id": "f2", "kind": "return_type", "content": "returns list" }
+  ],
+  "summary": "Deduplicates the iterable by wrapping it in a set and returns the values as a list. Emits an OpenTelemetry trace span for the dedup.",
+  "labels": [
+    { "sentence": "Deduplicates the iterable by wrapping it in a set and returns the values as a list.", "entailed": true },
+    { "sentence": "Emits an OpenTelemetry trace span for the dedup.", "entailed": false }
+  ]
+}

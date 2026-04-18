@@ -1,0 +1,14 @@
+{
+  "id": "ts/fetch_user",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls fetch" },
+    { "id": "f2", "kind": "return_type", "content": "returns Promise<User>" },
+    { "id": "f3", "kind": "import", "content": "imports node:fs/promises" }
+  ],
+  "summary": "Fetches the remote user record with fetch and returns a Promise that resolves to a User. Caches the user in localStorage.",
+  "labels": [
+    { "sentence": "Fetches the remote user record with fetch and returns a Promise that resolves to a User.", "entailed": true },
+    { "sentence": "Caches the user in localStorage.", "entailed": false }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "py/fibonacci",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function fib (5 LOC)" },
+    { "id": "f2", "kind": "return_type", "content": "returns int" }
+  ],
+  "summary": "Computes the nth Fibonacci number iteratively and returns the int. Memoises results to an LRU cache behind the scenes.",
+  "labels": [
+    { "sentence": "Computes the nth Fibonacci number iteratively and returns the int.", "entailed": true },
+    { "sentence": "Memoises results to an LRU cache behind the scenes.", "entailed": false }
+  ]
+}

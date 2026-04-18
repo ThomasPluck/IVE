@@ -1,0 +1,14 @@
+{
+  "id": "py/yaml_safe_load",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls yaml safe_load" },
+    { "id": "f2", "kind": "raises", "content": "raises YAMLError" },
+    { "id": "f3", "kind": "import", "content": "imports yaml" }
+  ],
+  "summary": "Parses the configuration stream using yaml safe_load and raises YAMLError on malformed input. The result is then pushed to Consul.",
+  "labels": [
+    { "sentence": "Parses the configuration stream using yaml safe_load and raises YAMLError on malformed input.", "entailed": true },
+    { "sentence": "The result is then pushed to Consul.", "entailed": false }
+  ]
+}

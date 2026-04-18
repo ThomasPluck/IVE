@@ -1,0 +1,12 @@
+{
+  "id": "py/compute_sum",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function compute_sum (3 LOC)" },
+    { "id": "f2", "kind": "return_type", "content": "returns int" }
+  ],
+  "summary": "Sums the numbers in the input iterable and returns the integer total.",
+  "labels": [
+    { "sentence": "Sums the numbers in the input iterable and returns the integer total.", "entailed": true }
+  ]
+}

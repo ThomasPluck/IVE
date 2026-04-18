@@ -1,0 +1,13 @@
+{
+  "id": "ts/set_cookie",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls res cookie" },
+    { "id": "f2", "kind": "signature", "content": "function setSession (6 LOC)" }
+  ],
+  "summary": "Writes the session token via res cookie with HttpOnly and Secure flags. Also synchronises the token to the edge cache.",
+  "labels": [
+    { "sentence": "Writes the session token via res cookie with HttpOnly and Secure flags.", "entailed": true },
+    { "sentence": "Also synchronises the token to the edge cache.", "entailed": false }
+  ]
+}

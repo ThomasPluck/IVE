@@ -1,0 +1,14 @@
+{
+  "id": "py/open_file",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls open" },
+    { "id": "f2", "kind": "call", "content": "calls read" },
+    { "id": "f3", "kind": "return_type", "content": "returns str" }
+  ],
+  "summary": "Opens the file with open and returns its contents as a string by calling read on the handle. Uploads the file contents to S3.",
+  "labels": [
+    { "sentence": "Opens the file with open and returns its contents as a string by calling read on the handle.", "entailed": true },
+    { "sentence": "Uploads the file contents to S3.", "entailed": false }
+  ]
+}

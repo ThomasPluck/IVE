@@ -1,0 +1,13 @@
+{
+  "id": "py/rpc_client",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls requests post" },
+    { "id": "f2", "kind": "call", "content": "calls response raise_for_status" }
+  ],
+  "summary": "POSTs the JSON payload via requests post and calls response raise_for_status to surface HTTP errors. Enables the feature flag remotely if the call succeeds.",
+  "labels": [
+    { "sentence": "POSTs the JSON payload via requests post and calls response raise_for_status to surface HTTP errors.", "entailed": true },
+    { "sentence": "Enables the feature flag remotely if the call succeeds.", "entailed": false }
+  ]
+}

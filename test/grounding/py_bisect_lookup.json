@@ -1,0 +1,13 @@
+{
+  "id": "py/bisect_lookup",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls bisect bisect_left" },
+    { "id": "f2", "kind": "return_type", "content": "returns int" }
+  ],
+  "summary": "Finds the insertion index via bisect bisect_left and returns the int position. Records a perf counter for every lookup.",
+  "labels": [
+    { "sentence": "Finds the insertion index via bisect bisect_left and returns the int position.", "entailed": true },
+    { "sentence": "Records a perf counter for every lookup.", "entailed": false }
+  ]
+}

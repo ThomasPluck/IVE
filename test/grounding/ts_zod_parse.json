@@ -1,0 +1,15 @@
+{
+  "id": "ts/zod_parse",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls zod schema parse" },
+    { "id": "f2", "kind": "raises", "content": "raises ZodError" },
+    { "id": "f3", "kind": "import", "content": "imports zod" }
+  ],
+  "summary": "Validates the input using zod schema parse and raises ZodError when the payload is invalid. Returns the typed value on success. The parsed value is also memoised in LRU cache.",
+  "labels": [
+    { "sentence": "Validates the input using zod schema parse and raises ZodError when the payload is invalid.", "entailed": true },
+    { "sentence": "Returns the typed value on success.", "entailed": true },
+    { "sentence": "The parsed value is also memoised in LRU cache.", "entailed": false }
+  ]
+}

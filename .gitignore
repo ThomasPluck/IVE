@@ -1,8 +1,28 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Node
 node_modules/
 dist/
-.ive/
-.claude/
-coverage/
+out/
 *.vsix
-webview/node_modules/
+coverage/
+.vite/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+webview/e2e/screenshots/
+
+# IVE runtime state
+.ive/
+
+# Staged release assets (populated by extension/esbuild.mjs)
+extension/LICENSE
+extension/resources/
+
+# Editor / OS
 .DS_Store
+.claude/

@@ -1,0 +1,13 @@
+{
+  "id": "py/sort_records",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls sorted" },
+    { "id": "f2", "kind": "return_type", "content": "returns list" }
+  ],
+  "summary": "Sorts the records using sorted with a key function and returns the list. Results are also cached in memcached.",
+  "labels": [
+    { "sentence": "Sorts the records using sorted with a key function and returns the list.", "entailed": true },
+    { "sentence": "Results are also cached in memcached.", "entailed": false }
+  ]
+}

@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  daemon:
+    name: daemon (Rust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install pyright (workstream D) + semgrep (workstream E)
+        run: pip install pyright semgrep
+      - run: cargo fmt --all -- --check
+      - run: cargo test --release --all
+      - name: fixture integration
+        run: ./test/run_fixtures.sh
+
+  extension:
+    name: extension + webview (TS)
+    runs-on: ubuntu-latest
+    needs: daemon
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p ive-daemon
+
+      - name: install webview deps
+        run: |
+          cd webview && npm ci
+      - name: webview test + build
+        run: |
+          cd webview && npm test && npm run build
+      - name: webview e2e (Playwright)
+        run: |
+          cd webview
+          npx playwright install --with-deps chromium
+          npx playwright test
+
+      - name: install extension deps
+        run: |
+          cd extension && npm ci
+      - name: extension typecheck
+        run: |
+          cd extension && npx tsc --noEmit
+      - name: extension unit tests
+        env:
+          IVE_DAEMON_PATH: ${{ github.workspace }}/target/release/ive-daemon
+        run: |
+          cd extension && npx vitest run
+      - name: extension build
+        run: |
+          cd extension && node esbuild.mjs
+
+      - name: install mcp deps
+        run: |
+          cd mcp && npm ci
+      - name: mcp typecheck + build
+        run: |
+          cd mcp && npx tsc --noEmit && node esbuild.mjs
+      - name: mcp e2e (drives daemon via MCP stdio)
+        run: |
+          cd mcp && npx vitest run

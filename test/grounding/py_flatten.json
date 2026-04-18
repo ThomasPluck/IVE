@@ -1,0 +1,13 @@
+{
+  "id": "py/flatten",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function flatten (4 LOC)" },
+    { "id": "f2", "kind": "return_type", "content": "returns list" }
+  ],
+  "summary": "Recursively flattens the nested iterable and returns a flat list. Also stores a checkpoint so partial traversals can resume.",
+  "labels": [
+    { "sentence": "Recursively flattens the nested iterable and returns a flat list.", "entailed": true },
+    { "sentence": "Also stores a checkpoint so partial traversals can resume.", "entailed": false }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "py/flask_route",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls flask jsonify" },
+    { "id": "f2", "kind": "return_type", "content": "returns Response" },
+    { "id": "f3", "kind": "import", "content": "imports flask" }
+  ],
+  "summary": "Serialises the result dict via flask jsonify and returns the Response. Writes the payload to Kafka first.",
+  "labels": [
+    { "sentence": "Serialises the result dict via flask jsonify and returns the Response.", "entailed": true },
+    { "sentence": "Writes the payload to Kafka first.", "entailed": false }
+  ]
+}

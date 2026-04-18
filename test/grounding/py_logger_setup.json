@@ -1,0 +1,13 @@
+{
+  "id": "py/logger_setup",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls logging getLogger" },
+    { "id": "f2", "kind": "call", "content": "calls logger setLevel" }
+  ],
+  "summary": "Obtains a named logger via logging getLogger and calls logger setLevel to configure verbosity. Routes duplicate handlers to a remote aggregator automatically.",
+  "labels": [
+    { "sentence": "Obtains a named logger via logging getLogger and calls logger setLevel to configure verbosity.", "entailed": true },
+    { "sentence": "Routes duplicate handlers to a remote aggregator automatically.", "entailed": false }
+  ]
+}

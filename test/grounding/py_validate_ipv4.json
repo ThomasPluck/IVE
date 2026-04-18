@@ -1,0 +1,13 @@
+{
+  "id": "py/validate_ipv4",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls ipaddress IPv4Address" },
+    { "id": "f2", "kind": "raises", "content": "raises ValueError" }
+  ],
+  "summary": "Parses the string through ipaddress IPv4Address and raises ValueError on malformed input. Also geolocates the address via a MaxMind lookup.",
+  "labels": [
+    { "sentence": "Parses the string through ipaddress IPv4Address and raises ValueError on malformed input.", "entailed": true },
+    { "sentence": "Also geolocates the address via a MaxMind lookup.", "entailed": false }
+  ]
+}

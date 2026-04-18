@@ -1,0 +1,12 @@
+{
+  "id": "ts/fs_exists",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls fs existsSync" },
+    { "id": "f2", "kind": "return_type", "content": "returns boolean" }
+  ],
+  "summary": "Checks whether the path exists with fs existsSync and returns the boolean result.",
+  "labels": [
+    { "sentence": "Checks whether the path exists with fs existsSync and returns the boolean result.", "entailed": true }
+  ]
+}

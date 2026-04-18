@@ -1,0 +1,13 @@
+{
+  "id": "py/send_email",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls smtplib SMTP send_message" },
+    { "id": "f2", "kind": "import", "content": "imports smtplib" }
+  ],
+  "summary": "Sends the message via smtplib SMTP send_message. Then uploads a copy to S3 as a backup.",
+  "labels": [
+    { "sentence": "Sends the message via smtplib SMTP send_message.", "entailed": true },
+    { "sentence": "Then uploads a copy to S3 as a backup.", "entailed": false }
+  ]
+}

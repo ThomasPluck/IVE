@@ -1,0 +1,14 @@
+{
+  "id": "ts/memoize",
+  "language": "typescript",
+  "facts": [
+    { "id": "f1", "kind": "signature", "content": "function memoize (10 LOC)" },
+    { "id": "f2", "kind": "call", "content": "calls Map has" },
+    { "id": "f3", "kind": "call", "content": "calls Map set" }
+  ],
+  "summary": "Wraps the input function with a Map-backed cache using Map has + Map set and returns the cached value on hits. Automatically invalidates entries when the process runs low on memory.",
+  "labels": [
+    { "sentence": "Wraps the input function with a Map-backed cache using Map has + Map set and returns the cached value on hits.", "entailed": true },
+    { "sentence": "Automatically invalidates entries when the process runs low on memory.", "entailed": false }
+  ]
+}

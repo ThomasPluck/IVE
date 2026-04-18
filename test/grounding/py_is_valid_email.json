@@ -1,0 +1,13 @@
+{
+  "id": "py/is_valid_email",
+  "language": "python",
+  "facts": [
+    { "id": "f1", "kind": "call", "content": "calls re match" },
+    { "id": "f2", "kind": "return_type", "content": "returns bool" }
+  ],
+  "summary": "Validates the email string with re match and returns a bool. Additionally checks the domain's MX record over DNS.",
+  "labels": [
+    { "sentence": "Validates the email string with re match and returns a bool.", "entailed": true },
+    { "sentence": "Additionally checks the domain's MX record over DNS.", "entailed": false }
+  ]
+}
