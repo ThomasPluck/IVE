@@ -13,6 +13,7 @@ use crate::contracts::{Diagnostic, DiagnosticSource, Location, Range, Severity};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
+use tracing::warn;
 
 pub fn binary_present() -> bool {
     if std::env::var("IVE_SKIP_SEMGREP").is_ok() {
@@ -58,17 +59,59 @@ pub fn scan_path(target: &Path, rules: &Path) -> Option<Vec<Diagnostic>> {
     // Semgrep ≥1.x exits non-zero when it finds issues — we consume
     // stdout either way and don't pass the flag that older versions used
     // for this (it was renamed/removed across versions).
+    // `--no-git-ignore` is load-bearing: without it, semgrep auto-detects
+    // when the target lives inside a git repo and silently restricts the
+    // scan to files tracked by git from semgrep's own vantage point. That
+    // produces 0 findings on subdirectory targets even when the files are
+    // tracked at the repo root (the daemon's case). We never want that
+    // behaviour — IVE owns workspace traversal — so always opt out.
     let output = Command::new("semgrep")
         .arg("--config")
         .arg(rules)
         .arg("--json")
         .arg("--timeout")
         .arg("10")
+        .arg("--no-git-ignore")
         .arg(target)
         .output()
         .ok()?;
-    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
-    let results = parsed.get("results")?.as_array()?;
+    let parsed: serde_json::Value = match serde_json::from_slice(&output.stdout) {
+        Ok(v) => v,
+        Err(e) => {
+            warn!(
+                error = %e,
+                stderr = %String::from_utf8_lossy(&output.stderr),
+                "semgrep stdout was not valid JSON"
+            );
+            return None;
+        }
+    };
+    let results = match parsed.get("results").and_then(|r| r.as_array()) {
+        Some(r) => r,
+        None => {
+            warn!(
+                stderr = %String::from_utf8_lossy(&output.stderr),
+                "semgrep JSON had no `results` array"
+            );
+            return None;
+        }
+    };
+    if results.is_empty() {
+        // 0 findings is a legitimate outcome, but on the AI-slop fixtures
+        // it's almost always a misconfig. Surface semgrep's own errors so
+        // the failure is debuggable.
+        let errors = parsed
+            .get("errors")
+            .map(|e| e.to_string())
+            .unwrap_or_else(|| "[]".into());
+        let stderr_tail = String::from_utf8_lossy(&output.stderr);
+        warn!(
+            errors = %errors,
+            stderr_len = stderr_tail.len(),
+            stderr_tail = %stderr_tail.lines().rev().take(5).collect::<Vec<_>>().join(" | "),
+            "semgrep returned 0 results"
+        );
+    }
     let mut diagnostics = Vec::with_capacity(results.len());
     for r in results {
         if let Some(d) = result_to_diagnostic(r, target) {

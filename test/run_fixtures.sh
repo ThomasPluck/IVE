@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # Integration harness for test/fixtures/ai-slop/.
 #
-# For each subdirectory under fixtures/ai-slop, run `ive-daemon scan` and
-# check the returned JSON matches the expectations in the YAML sidecar.
-# This runner is deliberately shell+jq-only (no extra deps) and only checks
-# the invariants that exist in v1.
+# For each subdirectory, run `ive-daemon scan` and check the returned JSON
+# satisfies a generic non-green invariant. Detailed per-analyzer expectations
+# live in daemon/tests/fixtures.rs — this script is the end-to-end smoke
+# check that the released binary's wiring still works.
 #
-# Exit code is non-zero on the first mismatch.
+# Fixtures that depend on an external analyzer binary (rust-analyzer,
+# semgrep, pyright, tsc) are skipped when that binary isn't on PATH so a
+# minimal install doesn't fail CI for missing optional capabilities.
+#
+# Exit code is non-zero on the first hard mismatch.
 
 set -euo pipefail
 
@@ -18,35 +22,68 @@ if [[ ! -x "$DAEMON" ]]; then
   exit 2
 fi
 
+# Map fixture name → required external binary. Empty string means the
+# fixture relies only on the daemon's built-in analyzers (hallucination,
+# crossfile, binding) and must always produce diagnostics.
+required_binary() {
+  case "$1" in
+    rust_analyzer) echo rust-analyzer ;;
+    semgrep)       echo semgrep       ;;
+    pyright)       echo pyright       ;;
+    tsc)           echo tsc           ;;
+    *)             echo ""            ;;
+  esac
+}
+
 FAIL=0
 
 for fixture_dir in "$ROOT"/test/fixtures/ai-slop/*/; do
   name="$(basename "$fixture_dir")"
   echo "── fixture: $name"
-  summary="$("$DAEMON" scan --workspace "$fixture_dir" 2>/dev/null)"
+
+  required="$(required_binary "$name")"
+  # `command -v` is not enough: rustup ships a rust-analyzer shim that
+  # is on PATH but errors out unless `rustup component add rust-analyzer`
+  # has been run. Mirror the daemon's own check (`<bin> --version`).
+  if [[ -n "$required" ]] && ! "$required" --version >/dev/null 2>&1; then
+    echo "  ⤳ skipped: '$required' not usable (binary missing or rustup shim without component)"
+    continue
+  fi
+
+  # Capture stderr so a daemon panic or analyzer error is visible on failure.
+  stderr_log="$(mktemp)"
+  summary="$("$DAEMON" scan --workspace "$fixture_dir" 2>"$stderr_log")"
   files_total="$(echo "$summary" | grep -o '"files":[[:space:]]*[0-9]*' | head -1 | awk '{print $2}')"
   diagnostics="$(echo "$summary" | grep -o '"diagnostics":[[:space:]]*[0-9]*' | head -1 | awk '{print $2}')"
   red="$(echo "$summary" | grep -o '"redFiles":[[:space:]]*[0-9]*' | head -1 | awk '{print $2}')"
   yellow="$(echo "$summary" | grep -o '"yellowFiles":[[:space:]]*[0-9]*' | head -1 | awk '{print $2}')"
 
-  if [[ "${files_total:-0}" == "0" ]]; then
-    echo "  ✗ expected at least one file in $name"
+  fail_with() {
+    echo "  ✗ $1 in $name"
+    if [[ -s "$stderr_log" ]]; then
+      echo "  ── daemon stderr ──"
+      sed 's/^/    /' "$stderr_log"
+    fi
+    rm -f "$stderr_log"
     FAIL=1
+  }
+
+  if [[ "${files_total:-0}" == "0" ]]; then
+    fail_with "expected at least one file"
     continue
   fi
 
   if [[ "${diagnostics:-0}" == "0" ]]; then
-    echo "  ✗ expected hallucinated-import diagnostic in $name"
-    FAIL=1
+    fail_with "expected at least one diagnostic"
     continue
   fi
 
   if [[ "${red:-0}" == "0" && "${yellow:-0}" == "0" ]]; then
-    echo "  ✗ expected at least one non-green file in $name"
-    FAIL=1
+    fail_with "expected at least one non-green file"
     continue
   fi
 
+  rm -f "$stderr_log"
   echo "  ✓ $name ($files_total files, $diagnostics diagnostics, $red red, $yellow yellow)"
 done
 
