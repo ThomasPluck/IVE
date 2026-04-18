@@ -59,12 +59,19 @@ pub fn scan_path(target: &Path, rules: &Path) -> Option<Vec<Diagnostic>> {
     // Semgrep ≥1.x exits non-zero when it finds issues — we consume
     // stdout either way and don't pass the flag that older versions used
     // for this (it was renamed/removed across versions).
+    // `--no-git-ignore` is load-bearing: without it, semgrep auto-detects
+    // when the target lives inside a git repo and silently restricts the
+    // scan to files tracked by git from semgrep's own vantage point. That
+    // produces 0 findings on subdirectory targets even when the files are
+    // tracked at the repo root (the daemon's case). We never want that
+    // behaviour — IVE owns workspace traversal — so always opt out.
     let output = Command::new("semgrep")
         .arg("--config")
         .arg(rules)
         .arg("--json")
         .arg("--timeout")
         .arg("10")
+        .arg("--no-git-ignore")
         .arg(target)
         .output()
         .ok()?;
