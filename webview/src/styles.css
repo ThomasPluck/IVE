@@ -120,6 +120,7 @@ progress {
 }
 
 .panel-body {
+  position: relative;
   flex: 1;
   overflow: auto;
   padding: 4px 0;
@@ -392,3 +393,101 @@ progress {
 .vibe-loc {
   font-size: 11px;
 }
+
+/* Attention primitives — how Claude points at the UI.
+   Spec §0 principle: the bond survives only if the user can see where
+   the agent is looking. Four layered cues:
+     1. spotlight ring  — pulsing colour on the anchored tile
+     2. focus dim       — everything else fades out on note click
+     3. agent presence  — header dot + relative-time text
+     4. focus-reset     — one-click escape back to the full treemap  */
+
+@keyframes ive-spotlight-pulse {
+  0%   { stroke-opacity: 0.35; }
+  50%  { stroke-opacity: 1.0; }
+  100% { stroke-opacity: 0.35; }
+}
+
+.spotlight-ring {
+  animation: ive-spotlight-pulse 2.1s ease-in-out infinite;
+  /* Prefer-reduced-motion users get a steady ring, no pulse. */
+}
+@media (prefers-reduced-motion: reduce) {
+  .spotlight-ring { animation: none; stroke-opacity: 0.8; }
+}
+
+.tile-dimmed rect:first-child { fill-opacity: 0.15; }
+.tile-dimmed .spotlight-ring  { animation: none; stroke-opacity: 0.25; }
+
+.tile-focused rect:first-child {
+  /* The focused tile keeps its full colour and gets a bright 2px inner
+     border so the user's eye lands there even mid-scan. */
+  fill-opacity: 1.0;
+}
+
+.focus-reset {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  z-index: 2;
+  background: var(--ive-surface);
+  color: var(--ive-blue);
+  border: 1px solid var(--ive-blue);
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.focus-reset:hover { background: var(--ive-blue); color: var(--ive-bg); }
+
+/* Agent presence — shows in the header when any note-posting activity
+   has happened. Three colour states driven by class. */
+.agent-presence {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ive-text-dim);
+  letter-spacing: -0.01em;
+}
+.agent-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ive-text-faint);
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.agent-live   .agent-dot { background: var(--ive-green); animation: ive-agent-pulse 1.4s ease-in-out infinite; }
+.agent-live              { color: var(--ive-green); }
+.agent-recent .agent-dot { background: var(--ive-green); opacity: 0.6; }
+.agent-recent            { color: var(--ive-text-dim); }
+.agent-idle   .agent-dot { background: var(--ive-text-faint); }
+.agent-idle              { color: var(--ive-text-faint); }
+
+@keyframes ive-agent-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.55); }
+  70%  { box-shadow: 0 0 0 6px rgba(63, 185, 80, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-dot { animation: none !important; }
+}
+
+/* Vibe row arrival — first render after a notesUpdated fade-in so the
+   user notices new notes without having to spot them in place. */
+.vibe-row {
+  animation: ive-note-arrive 280ms ease-out;
+}
+@keyframes ive-note-arrive {
+  0%   { opacity: 0; transform: translateX(-4px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vibe-row { animation: none; }
+}
+
+/* Treemap wrap needs position:relative so the focus-reset button can
+   anchor to its bottom-right. */
+.treemap-wrap { position: relative; }

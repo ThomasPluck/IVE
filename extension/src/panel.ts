@@ -50,6 +50,24 @@ export class IvePanel implements vscode.WebviewViewProvider {
 
   broadcastDaemonEvent(event: DaemonEvent): void {
     this.post({ type: "event", payload: event });
+    if (event.type === "notesUpdated") {
+      this.applyBadge(event.notes.length);
+    }
+  }
+
+  /// Sets the activity-bar badge so the user sees the note count even
+  /// when the IVE panel is collapsed. spec §0 — attention must reach
+  /// the user regardless of which view they're looking at.
+  private applyBadge(count: number): void {
+    if (!this.view) return;
+    if (count === 0) {
+      this.view.badge = undefined;
+    } else {
+      this.view.badge = {
+        value: count,
+        tooltip: `${count} unresolved IVE note${count === 1 ? "" : "s"}`,
+      };
+    }
   }
 
   async refreshWorkspaceState(): Promise<void> {

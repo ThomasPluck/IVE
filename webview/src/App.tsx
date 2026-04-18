@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import type { DaemonEvent, FromExtensionMessage, WorkspaceState } from "./types";
+import { useEffect, useMemo, useState } from "react";
+import type { DaemonEvent, FromExtensionMessage, Note, WorkspaceState } from "./types";
 import type { GroundedSummary } from "./types-summary";
-import { Treemap } from "./panels/Treemap";
+import { Treemap, type SpotlightEntry } from "./panels/Treemap";
 import { Diagnostics } from "./panels/Diagnostics";
 import { Summary } from "./panels/Summary";
 import { Slice, type SliceView } from "./panels/Slice";
@@ -24,6 +24,14 @@ export function App() {
   const [slice, setSlice] = useState<SliceView | null>(null);
   const [sliceError, setSliceError] = useState<string | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  /// The file the user has clicked into via a Vibe note; null = no focus.
+  /// When set, the treemap dims every other tile so the concern pops out
+  /// of the topology.
+  const [focusFile, setFocusFile] = useState<string | null>(null);
+  /// Last time we saw a Claude-authored note arrive, expressed as a
+  /// wall-clock Date.now(). Powers the header presence indicator.
+  const [lastAgentActivityAt, setLastAgentActivityAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const onMessage = (ev: MessageEvent) => {
@@ -111,9 +119,38 @@ export function App() {
         break;
       case "notesUpdated":
         setState((s) => ({ ...s, notes: e.notes }));
+        if (e.notes.some((n) => n.author === "claude")) {
+          setLastAgentActivityAt(Date.now());
+        }
         break;
     }
   }
+
+  // Tick the clock at 1Hz so the "active Ns ago" label stays fresh
+  // without firing on every React render.
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Derive spotlights from notes with a location.
+  const spotlights: SpotlightEntry[] = useMemo(() => {
+    return (state.notes ?? [])
+      .filter((n): n is Note & { location: { file: string } } => Boolean(n.location))
+      .map((n) => ({ file: n.location.file, kind: n.kind, severity: n.severity }));
+  }, [state.notes]);
+
+  // Allow the Vibe panel to focus the treemap on a file when the user
+  // clicks a note. Clicking a note anywhere calls this back via a
+  // window-level event the Vibe component dispatches.
+  useEffect(() => {
+    const handler = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ file: string | null }>).detail;
+      setFocusFile(detail?.file ?? null);
+    };
+    window.addEventListener("ive:focus-file", handler as EventListener);
+    return () => window.removeEventListener("ive:focus-file", handler as EventListener);
+  }, []);
 
   function requestSummaryForWorstFunction() {
     // Pick the highest-composite function-level score and summarize it.
@@ -138,6 +175,7 @@ export function App() {
         {phase === "indexing" && progress ? (
           <progress value={progress.done} max={Math.max(progress.total, 1)} />
         ) : null}
+        <AgentPresence lastAt={lastAgentActivityAt} now={now} />
       </header>
 
       {globalError ? <div className="banner banner-error">Error: {globalError}</div> : null}
@@ -153,7 +191,16 @@ export function App() {
           {state.scores.length > 0 ? <span className="dim">({state.scores.length} files)</span> : null}
         </header>
         <div className="panel-body">
-          <Treemap scores={state.scores} />
+          <Treemap
+            scores={state.scores}
+            spotlights={spotlights}
+            focusFile={focusFile}
+          />
+          {focusFile ? (
+            <button className="focus-reset" onClick={() => setFocusFile(null)}>
+              clear focus · {focusFile}
+            </button>
+          ) : null}
         </div>
       </section>
 
@@ -259,4 +306,43 @@ function isSummaryShape(v: unknown): v is GroundedSummary {
     Array.isArray(o.claims) &&
     Array.isArray(o.factsGiven)
   );
+}
+
+// Presence indicator — a small pulsing dot + relative-time label that
+// tells the user whether the agent is currently paying attention.
+// Three states:
+//   - never seen: hidden (keeps the chrome calm when no agent is wired)
+//   - ≤3s ago:    live (green, pulsing)
+//   - ≤60s ago:   recent (dim green, steady)
+//   - >60s ago:   idle (grey, "idle 5m")
+function AgentPresence({
+  lastAt,
+  now,
+}: {
+  lastAt: number | null;
+  now: number;
+}) {
+  if (lastAt == null) return null;
+  const delta = Math.max(0, now - lastAt);
+  const label = relativeLabel(delta);
+  let state: "live" | "recent" | "idle" = "idle";
+  if (delta < 3000) state = "live";
+  else if (delta < 60_000) state = "recent";
+  return (
+    <span
+      className={`agent-presence agent-${state}`}
+      title={`Last agent activity: ${label}`}
+      aria-live="polite"
+    >
+      <span className="agent-dot" aria-hidden="true" />
+      claude · {label}
+    </span>
+  );
+}
+
+function relativeLabel(delta: number): string {
+  if (delta < 1500) return "active now";
+  if (delta < 60_000) return `active ${Math.round(delta / 1000)}s ago`;
+  if (delta < 3_600_000) return `idle ${Math.round(delta / 60_000)}m`;
+  return `idle ${Math.round(delta / 3_600_000)}h`;
 }

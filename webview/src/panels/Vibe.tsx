@@ -71,6 +71,13 @@ function VibeRow({ note }: { note: Note }) {
   const openLocation = () => {
     if (note.location) {
       vs().postMessage({ type: "openFile", location: note.location });
+      // Also ask the app to focus the treemap on this note's file —
+      // every tile that isn't this one dims so the concern pops.
+      window.dispatchEvent(
+        new CustomEvent("ive:focus-file", {
+          detail: { file: note.location.file },
+        }),
+      );
     }
   };
   const resolve = (ev: React.MouseEvent) => {
