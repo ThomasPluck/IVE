@@ -284,6 +284,12 @@ fn walk_rust_files(root: &Path) -> Vec<PathBuf> {
 fn path_to_uri(p: &Path) -> String {
     let abs = p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
     let raw = abs.to_string_lossy();
+    // Path::canonicalize on Windows returns the UNC long-path form
+    // (\\?\C:\...). The `\\?\` prefix is a Win32 namespace marker, not part
+    // of the path semantically, and absolutely doesn't belong in a file://
+    // URI — without stripping it we'd emit `file:////%3F/C:/...` and round
+    // trips through uri_to_relative would never match.
+    let raw = raw.strip_prefix(r"\\?\").unwrap_or(&raw);
     let encoded = raw
         .chars()
         .map(|c| {
@@ -304,15 +310,20 @@ fn path_to_uri(p: &Path) -> String {
 }
 
 fn uri_to_relative(uri: &str, root: &Path) -> Option<String> {
-    let path = uri.strip_prefix("file://")?;
+    let path = uri.strip_prefix("file://")?.trim_start_matches('/');
     let canon_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-    let root_str = canon_root.to_string_lossy();
-    let stripped = if path.starts_with(root_str.as_ref()) {
-        &path[root_str.len()..]
+    let raw_root = canon_root.to_string_lossy();
+    // Match path_to_uri's normalisation: drop the Windows UNC prefix and
+    // convert backslashes so prefix comparison works on both platforms.
+    let raw_root = raw_root.strip_prefix(r"\\?\").unwrap_or(&raw_root);
+    let normalized_root = raw_root.replace('\\', "/");
+    let normalized_root = normalized_root.trim_start_matches('/');
+    let stripped = if path.starts_with(normalized_root) {
+        &path[normalized_root.len()..]
     } else {
         path
     };
-    Some(stripped.trim_start_matches('/').replace('\\', "/"))
+    Some(stripped.trim_start_matches('/').to_string())
 }
 
 #[derive(Debug, Deserialize)]
